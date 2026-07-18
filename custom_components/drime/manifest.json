@@ -1,0 +1,12 @@
+{
+  "domain": "drime",
+  "name": "Drime backup",
+  "codeowners": ["@RoboMagus"],
+  "config_flow": true,
+  "documentation": "https://github.com/RoboMagus/home-assistant-drime-backup",
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "issue_tracker": "https://github.com/RoboMagus/home-assistant-drime-backup/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
