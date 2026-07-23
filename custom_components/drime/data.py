@@ -7,19 +7,26 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
-    from homeassistant.loader import Integration
 
-    from .api import IntegrationBlueprintApiClient
-    from .coordinator import BlueprintDataUpdateCoordinator
+    from .api import DrimeClient
+    from .coordinator import DrimeUpdateCoordinator
 
 
-type IntegrationBlueprintConfigEntry = ConfigEntry[IntegrationBlueprintData]
+type DrimeConfigEntry = ConfigEntry[DrimeConfigData]
 
 
 @dataclass
-class IntegrationBlueprintData:
-    """Data for the Blueprint integration."""
+class DrimeConfigData:
+    """Data for the Drime integration."""
 
-    client: IntegrationBlueprintApiClient
-    coordinator: BlueprintDataUpdateCoordinator
-    integration: Integration
+    client: DrimeClient
+    coordinator: DrimeUpdateCoordinator
+    subscription_name: str
+
+
+@dataclass
+class DrimeData:
+    """Data for the Drime integration."""
+
+    storage_used: int
+    storage_available: int

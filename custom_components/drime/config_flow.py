@@ -1,26 +1,22 @@
-"""Adds config flow for Blueprint."""
+"""Adds config flow for Drime."""
 
 from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_API_KEY, CONF_NAME
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.loader import async_get_loaded_integration
-from slugify import slugify
 
 from .api import (
-    IntegrationBlueprintApiClient,
-    IntegrationBlueprintApiClientAuthenticationError,
-    IntegrationBlueprintApiClientCommunicationError,
-    IntegrationBlueprintApiClientError,
+    DrimeClient,
 )
 from .const import DOMAIN, LOGGER
 
 
-class BlueprintFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for Blueprint."""
+class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+    """Config flow for Drime."""
 
     VERSION = 1
 
@@ -32,30 +28,34 @@ class BlueprintFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         _errors = {}
         if user_input is not None:
             try:
-                await self._test_credentials(
-                    username=user_input[CONF_USERNAME],
-                    password=user_input[CONF_PASSWORD],
+                api_resp = await self._test_credentials(
+                    api_key=user_input[CONF_API_KEY],
                 )
-            except IntegrationBlueprintApiClientAuthenticationError as exception:
-                LOGGER.warning(exception)
-                _errors["base"] = "auth"
-            except IntegrationBlueprintApiClientCommunicationError as exception:
-                LOGGER.error(exception)
-                _errors["base"] = "connection"
-            except IntegrationBlueprintApiClientError as exception:
+            # except IntegrationBlueprintApiClientAuthenticationError as exception:
+            #     LOGGER.warning(exception)
+            #     _errors["base"] = "auth"
+            # except IntegrationBlueprintApiClientCommunicationError as exception:
+            #     LOGGER.error(exception)
+            #     _errors["base"] = "connection"
+            # except IntegrationBlueprintApiClientError as exception:
+            #     LOGGER.exception(exception)
+            #     _errors["base"] = "unknown"
+            except Exception as exception:
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(
-                    ## Do NOT use this in production code
-                    ## The unique_id should never be something that can change
-                    ## https://developers.home-assistant.io/docs/config_entries_config_flow_handler#unique-ids
-                    unique_id=slugify(user_input[CONF_USERNAME])
+                _uid = api_resp.get("user", {}).get("id")
+                _subscription = (
+                    api_resp.get("user", {})
+                    .get("subscriptions", [{}])[0]
+                    .get("product", {})
+                    .get("name", None)
                 )
+                await self.async_set_unique_id(unique_id=str(_uid))
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
-                    title=user_input[CONF_USERNAME],
-                    data=user_input,
+                    title=f"Drime-{_uid}",
+                    data=user_input | {CONF_NAME: _subscription},
                 )
 
         integration = async_get_loaded_integration(self.hass, DOMAIN)
@@ -71,14 +71,9 @@ class BlueprintFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_USERNAME,
-                        default=(user_input or {}).get(CONF_USERNAME, vol.UNDEFINED),
+                        CONF_API_KEY,
+                        default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
                     ): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT,
-                        ),
-                    ),
-                    vol.Required(CONF_PASSWORD): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.PASSWORD,
                         ),
@@ -88,11 +83,12 @@ class BlueprintFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=_errors,
         )
 
-    async def _test_credentials(self, username: str, password: str) -> None:
+    async def _test_credentials(self, api_key: str):
         """Validate credentials."""
-        client = IntegrationBlueprintApiClient(
-            username=username,
-            password=password,
+        client = DrimeClient(
+            api_key=api_key,
             session=async_create_clientsession(self.hass),
         )
-        await client.async_get_data()
+        user = await client.get_user()
+        LOGGER.debug(user)
+        return user
