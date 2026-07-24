@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import EntityCategory, UnitOfInformation
+from homeassistant.const import UnitOfInformation
 
 from .entity import DrimeEntity
 
@@ -71,7 +71,5 @@ class DrimeSensor(DrimeEntity, SensorEntity):
         _data = self.coordinator.data
         return {
             "available_bytes": _data.storage_available,
-            "percent_used": round(
-                100 * _data.storage_used / _data.storage_available, 2
-            ),
+            "percent_used": round(100 * _data.storage_used / _data.storage_available, 2),
         }

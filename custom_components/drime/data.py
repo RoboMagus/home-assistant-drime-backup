@@ -21,7 +21,6 @@ class DrimeConfigData:
 
     client: DrimeClient
     coordinator: DrimeUpdateCoordinator
-    subscription_name: str
 
 
 @dataclass

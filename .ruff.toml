@@ -1,6 +1,7 @@
 # The contents of this file is based on https://github.com/home-assistant/core/blob/dev/pyproject.toml
 
 target-version = "py314"
+line-length = 120
 
 [lint]
 select = [
@@ -8,11 +9,15 @@ select = [
 ]
 
 ignore = [
-    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
-    "D203", # no-blank-line-before-class (incompatible with formatter)
-    "D212", # multi-line-summary-first-line (incompatible with formatter)
-    "COM812", # incompatible with formatter
-    "ISC001", # incompatible with formatter
+    "ANN401",   # Dynamically typed expressions (typing.Any) are disallowed
+    "D202",     # No blank lines allowed after function docstring
+    "D203",     # no-blank-line-before-class (incompatible with formatter)
+    "D212",     # multi-line-summary-first-line (incompatible with formatter)
+    "COM812",   # incompatible with formatter
+    "ISC001",   # incompatible with formatter
+    "TD002",    # Missing TODO author
+    "TD003",    # Missing TODO issue
+    "TD006",    # Invalid TODO
 ]
 
 [lint.flake8-pytest-style]

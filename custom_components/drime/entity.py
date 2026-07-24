@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.const import CONF_NAME
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -24,6 +25,6 @@ class DrimeEntity(CoordinatorEntity[DrimeUpdateCoordinator]):
                 ),
             },
             name="Drime cloud",
-            model=coordinator.config_entry.runtime_data.subscription_name,
+            model=coordinator.config_entry.data[CONF_NAME],
             configuration_url="https://app.drime.cloud",
         )

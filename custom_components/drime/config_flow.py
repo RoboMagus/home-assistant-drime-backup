@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_API_KEY, CONF_NAME
+from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_PATH
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
-from .api import (
-    DrimeClient,
-)
+from .api import DrimeApiClientAuthenticationError, DrimeClient
 from .const import DOMAIN, LOGGER
 
 
@@ -31,25 +31,16 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 api_resp = await self._test_credentials(
                     api_key=user_input[CONF_API_KEY],
                 )
-            # except IntegrationBlueprintApiClientAuthenticationError as exception:
-            #     LOGGER.warning(exception)
-            #     _errors["base"] = "auth"
-            # except IntegrationBlueprintApiClientCommunicationError as exception:
-            #     LOGGER.error(exception)
-            #     _errors["base"] = "connection"
-            # except IntegrationBlueprintApiClientError as exception:
-            #     LOGGER.exception(exception)
-            #     _errors["base"] = "unknown"
-            except Exception as exception:
+            except DrimeApiClientAuthenticationError as exception:
+                LOGGER.warning(exception)
+                _errors["base"] = "auth"
+            except Exception as exception:  # noqa: BLE001
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
                 _uid = api_resp.get("user", {}).get("id")
                 _subscription = (
-                    api_resp.get("user", {})
-                    .get("subscriptions", [{}])[0]
-                    .get("product", {})
-                    .get("name", None)
+                    api_resp.get("user", {}).get("subscriptions", [{}])[0].get("product", {}).get("name", None)
                 )
                 await self.async_set_unique_id(unique_id=str(_uid))
                 self._abort_if_unique_id_configured()
@@ -76,6 +67,14 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.PASSWORD,
+                        ),
+                    ),
+                    vol.Required(
+                        CONF_PATH,
+                        default=(user_input or {}).get(CONF_PATH, "/HomeAssistant"),
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.TEXT,
                         ),
                     ),
                 },
