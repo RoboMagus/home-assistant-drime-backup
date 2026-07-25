@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 import aiohttp
-import async_timeout
+import asyncio
 
 from .const import API_BASE_URL, LOGGER
 
@@ -87,7 +87,7 @@ class DrimeClient:
     ) -> Any:
         """Get information from the API."""
         try:
-            async with async_timeout.timeout(60):
+            async with asyncio.timeout(15):
                 response = await self._session.request(
                     method=method,
                     url=API_BASE_URL + endpoint,
@@ -133,10 +133,11 @@ class DrimeClient:
         data: dict | None = None,
         headers: dict | None = None,
         params: dict | None = None,
+        timeout: float | None = None,  # noqa: ASYNC109
     ) -> Any:
         """Get information from the API."""
         try:
-            async with async_timeout.timeout(60):
+            async with asyncio.timeout(timeout or 60):
                 response = await self._session.request(
                     method=method,
                     url=API_BASE_URL + endpoint,
@@ -199,11 +200,10 @@ class DrimeClient:
         LOGGER.warning(fid)
         return fid
 
-    async def download_file(self, entry_hash: str) -> Any:
+    async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
         """https://docs.drime.cloud/api-reference/files/download-file."""
-        return await self._stream_wrapper("GET", f"/file-entries/download/{entry_hash}")
+        return await self._stream_wrapper("GET", f"/file-entries/download/{entry_hash}", timeout=timeout)
 
     async def delete_entries(self, entry_ids: list[int]) -> Any:
         """https://docs.drime.cloud/api-reference/files/delete-entries."""
         return await self._api_wrapper("POST", "/file-entries/delete", data={"entryIds": entry_ids})
-

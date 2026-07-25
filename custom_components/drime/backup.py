@@ -180,7 +180,7 @@ class DrimeBackupAgent(BackupAgent):
     @override
     async def async_list_backups(self, **kwargs: Any) -> list[DrimeAgentBackup]:
         """List backups."""
-        return list((await self._list_cached_metadata_files()).values())
+        return list((await self._list_cached_backups()).values())
 
     @override
     async def async_get_backup(
@@ -204,8 +204,13 @@ class DrimeBackupAgent(BackupAgent):
         :return: An async iterator that yields bytes.
         """
         _LOGGER.debug("Downloading backup_id: %s", backup_id)
-        _LOGGER.error("async_download_backup NOT YET IMPLEMENTED")
-        raise BackupNotFound(f"Backup {backup_id} not found")
+        backup = await self._find_backup_by_id(backup_id)
+
+        start_time = time()
+        response = await self._client.download_file(backup.tar_hash, timeout=10 * 60)
+        elapsed_time = time() - start_time
+        _LOGGER.debug("Downloaded backup_id %s: %s in %.2fs", backup_id, backup.name, elapsed_time)
+        return response.content.iter_chunked(1024)
 
     @override
     async def async_delete_backup(
@@ -231,14 +236,14 @@ class DrimeBackupAgent(BackupAgent):
         # reset cache
         self._cache_expiration = time()
 
-    async def _list_cached_metadata_files(self) -> dict[str, DrimeAgentBackup]:
+    async def _list_cached_backups(self) -> dict[str, DrimeAgentBackup]:
         """List metadata files with a cache."""
         if time() <= self._cache_expiration:
             return self._cache_metadata_files
 
         async def _download_metadata(file_pair: BackupFilePair) -> DrimeAgentBackup | None:
             """Download metadata file."""
-            response = await self._client.download_file(file_pair.meta.hash)
+            response = await self._client.download_file(file_pair.meta.hash, timeout=30)
             metadata_bytes = await response.content.read()
             try:
                 return DrimeAgentBackup.from_dict(
@@ -281,8 +286,8 @@ class DrimeBackupAgent(BackupAgent):
 
     async def _find_backup_by_id(self, backup_id: str) -> DrimeAgentBackup:
         """Find a backup by its backup ID on remote."""
-        metadata_files = await self._list_cached_metadata_files()
-        if metadata_file := metadata_files.get(backup_id):
-            return metadata_file
+        backups = await self._list_cached_backups()
+        if backup := backups.get(backup_id):
+            return backup
 
         raise BackupNotFound(f"Backup {backup_id} not found")
