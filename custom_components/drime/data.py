@@ -27,5 +27,7 @@ class DrimeConfigData:
 class DrimeData:
     """Data for the Drime integration."""
 
+    percentage_used: float
     storage_used: int
     storage_available: int
+    total_backup_size: int

@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import UnitOfInformation
+from homeassistant.const import PERCENTAGE, UnitOfInformation
 
 from .entity import DrimeEntity
 
@@ -22,13 +22,38 @@ if TYPE_CHECKING:
 
 ENTITY_DESCRIPTIONS = (
     SensorEntityDescription(
-        key="drime",
-        name="Used storage",
+        key="storage_used",
+        name="Storage used",
         icon="mdi:database",
         device_class=SensorDeviceClass.DATA_SIZE,
         native_unit_of_measurement=UnitOfInformation.BYTES,
         suggested_display_precision=2,
         suggested_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+    ),
+    SensorEntityDescription(
+        key="storage_available",
+        name="Total available storage",
+        icon="mdi:database",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_display_precision=2,
+        suggested_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+    ),
+    SensorEntityDescription(
+        key="total_backup_size",
+        name="Total size of backups",
+        icon="mdi:database",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_display_precision=2,
+        suggested_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+    ),
+    SensorEntityDescription(
+        key="percentage_used",
+        name="Storage used percent",
+        icon="mdi:database",
+        native_unit_of_measurement=PERCENTAGE,
+        suggested_display_precision=2,
     ),
 )
 
@@ -59,17 +84,9 @@ class DrimeSensor(DrimeEntity, SensorEntity):
         """Initialize the sensor class."""
         super().__init__(coordinator)
         self.entity_description = entity_description
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{entity_description.key}_sensor"
 
     @property
     def native_value(self) -> int | None:
         """Return the native value of the sensor."""
-        return self.coordinator.data.storage_used
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return the state attributes."""
-        _data = self.coordinator.data
-        return {
-            "available_bytes": _data.storage_available,
-            "percent_used": round(100 * _data.storage_used / _data.storage_available, 2),
-        }
+        return getattr(self.coordinator.data, self.entity_description.key)

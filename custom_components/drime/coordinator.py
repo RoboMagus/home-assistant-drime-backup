@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.const import CONF_PATH
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DrimeApiClientAuthenticationError
-from .const import LOGGER
+from .const import DEFAULT_BACKUP_PATH, LOGGER
 from .data import DrimeConfigEntry, DrimeData
 
 
@@ -21,7 +22,14 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
         """Update data via library."""
         try:
             space_usage = await self.config_entry.runtime_data.client.get_space_usage()
-            return DrimeData(space_usage["used"], space_usage["available"])
+            backup_folder_data = await self.config_entry.runtime_data.client.get_file_entries(self.backup_folder_hash)
+
+            return DrimeData(
+                100 * space_usage["used"] / space_usage["available"],
+                space_usage["used"],
+                space_usage["available"],
+                backup_folder_data["folder"]["file_size"],
+            )
         except DrimeApiClientAuthenticationError as exception:
             LOGGER.error("Drime authentication error. Please check API key permissions.")
             raise ConfigEntryAuthFailed from exception
@@ -32,3 +40,7 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
         """Initialize the coordinator."""
         user = await self.config_entry.runtime_data.client.get_user()
         self.user_id = user.get("user", {}).get("id")
+
+        _, _, self.backup_folder_hash = await self.config_entry.runtime_data.client.get_folder_id(
+            self.config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), self.user_id
+        )

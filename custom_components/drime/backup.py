@@ -25,7 +25,7 @@ from homeassistant.util.async_ import gather_with_limited_concurrency
 from homeassistant.util.hass_dict import HassKey
 from homeassistant.util.json import JSON_DECODE_EXCEPTIONS, json_loads_object
 
-from .const import DOMAIN
+from .const import DEFAULT_BACKUP_PATH, DOMAIN
 from .data import DrimeConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ class DrimeBackupAgent(BackupAgent):
         self.unique_id = slugify(config_entry.unique_id)
         self.hass = hass
         self._client = config_entry.runtime_data.client
-        self._backup_path = config_entry.data.get(CONF_PATH, "/HomeAssistant")
+        self._backup_path = config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH)
         self._backup_folder_hash = None
         self._cache_expiration = time()
 

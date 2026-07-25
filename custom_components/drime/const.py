@@ -7,3 +7,5 @@ LOGGER: Logger = getLogger(__package__)
 DOMAIN = "drime"
 
 API_BASE_URL = "https://app.drime.cloud/api/v1"
+
+DEFAULT_BACKUP_PATH = "/HomeAssistant"

@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import DrimeApiClientAuthenticationError, DrimeClient
-from .const import DOMAIN, LOGGER
+from .const import DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
 
 
 class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -71,7 +71,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Required(
                         CONF_PATH,
-                        default=(user_input or {}).get(CONF_PATH, "/HomeAssistant"),
+                        default=(user_input or {}).get(CONF_PATH, DEFAULT_BACKUP_PATH),
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.TEXT,
