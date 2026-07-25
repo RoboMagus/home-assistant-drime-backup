@@ -9,6 +9,7 @@ from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import DrimeClient
+from .backup import DATA_BACKUP_AGENT_LISTENERS
 from .const import DOMAIN, LOGGER
 from .coordinator import DrimeUpdateCoordinator
 from .data import DrimeConfigData
@@ -40,6 +41,12 @@ async def async_setup_entry(
         ),
         coordinator=coordinator,
     )
+
+    def async_notify_backup_listeners() -> None:
+        for listener in hass.data.get(DATA_BACKUP_AGENT_LISTENERS, []):
+            listener()
+
+    entry.async_on_unload(entry.async_on_state_change(async_notify_backup_listeners))
 
     await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
