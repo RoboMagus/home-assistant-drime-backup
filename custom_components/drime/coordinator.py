@@ -9,7 +9,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DrimeApiClientAuthenticationError
-from .const import DEFAULT_BACKUP_PATH, LOGGER
+from .const import CONF_EXTRA_PATHS, DEFAULT_BACKUP_PATH, LOGGER
 from .data import DrimeConfigEntry, DrimeData
 
 
@@ -22,16 +22,19 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
         """Update data via library."""
         try:
             space_usage = await self.config_entry.runtime_data.client.get_space_usage()
-            backup_folder_data = await self.config_entry.runtime_data.client.get_file_entries(self.backup_folder_hash)
 
             folders = (await self.config_entry.runtime_data.client.get_folders(self.user_id)).get("folders", [])
-            folder_sizes = {f["hash"]: f["file_size"] for f in folders if f["type"] == "folder"}
+            folder_hashes = [self.backup_folder_hash, *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values()]
+            folder_sizes = {
+                f["hash"]: f["file_size"] for f in folders if f["type"] == "folder" and f["hash"] in folder_hashes
+            }
+            LOGGER.debug("Folder sizes: %r", folder_sizes)
 
             return DrimeData(
                 100 * space_usage["used"] / space_usage["available"],
                 space_usage["used"],
                 space_usage["available"],
-                backup_folder_data["folder"]["file_size"],
+                folder_sizes[self.backup_folder_hash],
                 folder_sizes,
             )
         except DrimeApiClientAuthenticationError as exception:
