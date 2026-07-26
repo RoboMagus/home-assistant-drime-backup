@@ -6,7 +6,9 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.const import CONF_API_KEY, CONF_PATH, Platform
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
 
 from .api import DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
@@ -40,9 +42,24 @@ async def async_setup_entry(
         session=async_get_clientsession(hass),
     )
 
-    _, _, folder_hash = await client.get_folder_id(
-        entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), entry.data.get(CONF_USER_ID)
+    drime_folder_path, _, folder_hash = await client.get_folder_id(
+        conf_folder_path := entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), entry.data.get(CONF_USER_ID)
     )
+    if drime_folder_path.strip(" /") != conf_folder_path.strip(" /"):
+        async_create_issue(
+            hass,
+            DOMAIN,
+            f"drime_backup_folder_not_found_{entry.unique_id}",
+            is_fixable=False,
+            is_persistent=False,
+            severity=IssueSeverity.ERROR,
+            translation_key="drime_backup_folder_not_found",
+            translation_placeholders={"path": conf_folder_path},
+        )
+        raise ConfigEntryError(f"Backup folder '{conf_folder_path}' not found!")
+    else:  # noqa: RET506
+        async_delete_issue(hass, DOMAIN, f"drime_backup_folder_not_found_{entry.unique_id}")
+
     entry.runtime_data = DrimeRuntimeData(client=client, coordinator=coordinator, backup_folder_hash=folder_hash)
 
     def async_notify_backup_listeners() -> None:

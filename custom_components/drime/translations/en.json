@@ -20,6 +20,12 @@
       }
     }
   },
+  "issues": {
+    "drime_backup_folder_not_found": {
+      "description": "The backup folder {path} cannot be found on Drime storage.\n\nThe folder may have been renamed or deleted.\nPlease ensure this path exists and reload this integration or restart Home Assistant to fix this issue.",
+      "title": "Drime backup folder not found"
+    }
+  },
   "options": {
     "error": {
       "path_not_found": "Path not found on Drime storage."

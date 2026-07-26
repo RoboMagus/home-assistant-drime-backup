@@ -44,6 +44,12 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 api_resp = await self._test_credentials(
                     api_key=user_input[CONF_API_KEY],
                 )
+                _uid = api_resp.get("user", {}).get("id")
+                _subscription = (
+                    api_resp.get("user", {}).get("subscriptions", [{}])[0].get("product", {}).get("name", None)
+                )
+
+                await self._create_folder_if_not_exists(user_input[CONF_PATH], user_input[CONF_API_KEY], _uid)
             except DrimeApiClientAuthenticationError as exception:
                 LOGGER.warning(exception)
                 _errors["base"] = "invalid_auth"
@@ -51,10 +57,6 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
-                _uid = api_resp.get("user", {}).get("id")
-                _subscription = (
-                    api_resp.get("user", {}).get("subscriptions", [{}])[0].get("product", {}).get("name", None)
-                )
                 await self.async_set_unique_id(unique_id=str(_uid))
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
@@ -117,6 +119,27 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         user = await client.get_user()
         LOGGER.debug(user)
         return user
+
+    async def _create_folder_if_not_exists(self, path: str, api_key: str, user_id: int) -> None:
+        """Create root folder if it doesn't exist."""
+        client = DrimeClient(
+            api_key=api_key,
+            session=async_create_clientsession(self.hass),
+        )
+        path = path.strip(" /")
+        existing_path, folder_id, folder_hash = await client.get_folder_id(path, user_id)
+        if existing_path == path:
+            LOGGER.debug("Backup directory found: %s (%s)", path, folder_hash)
+            return
+
+        LOGGER.info("Creating backup directory '%s'", path)
+        path_remainder = [d for d in path.removeprefix(existing_path).strip(" /").split("/") if d.strip()]
+        for d in path_remainder:
+            LOGGER.debug("Creating dir %s on parent %d", d, folder_id)
+            result = await client.create_folder(d, folder_id)
+            folder_id = result["folder"]["id"]
+            folder_hash = result["folder"]["hash"]
+        LOGGER.debug("Created backup directory %s (%s)", path, folder_hash)
 
 
 class DrimeOptionsFlowHandler(config_entries.OptionsFlow):

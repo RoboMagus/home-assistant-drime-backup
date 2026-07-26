@@ -205,6 +205,19 @@ class DrimeClient:
         folders = (await self.get_folders(user_id)).get("folders", [])
         return [_get_folder_id(path.strip(" /"), folders) for path in paths]
 
+    async def create_folder(self, name: str, parent_folder_id: int | None, workspace_id: int = 0) -> Any:
+        """https://docs.drime.cloud/api-reference/files/create-folder."""
+        return await self._api_wrapper(
+            "POST",
+            "/folders",
+            params={"workspaceId": workspace_id},
+            headers={"Content-Type": "application/json"},
+            data={
+                "name": name,
+                "parentId": parent_folder_id or None,  # Root folder needs None instead of 0 for parent!
+            },
+        )
+
     async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
         """https://docs.drime.cloud/api-reference/files/download-file."""
         return await self._stream_wrapper("GET", f"/file-entries/download/{entry_hash}", timeout=timeout)

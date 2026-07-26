@@ -145,17 +145,10 @@ class DrimeBackupAgent(BackupAgent):
         self.unique_id = slugify(config_entry.unique_id)
         self.hass = hass
         self._client = config_entry.runtime_data.client
+        self._backup_folder_hash = config_entry.runtime_data.backup_folder_hash
         self._backup_path = config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH)
-        self._backup_folder_hash = None
         self._user_id = config_entry.data.get(CONF_USER_ID)
         self._cache_expiration = time()
-
-    async def get_backup_folder_hash(self) -> str:
-        """Retrieve and cache folder hash for for backup directory."""
-        if not self._backup_folder_hash:
-            _LOGGER.debug("get_backup_folder_hash")
-            _, _, self._backup_folder_hash = await self._client.get_folder_id(self._backup_path, self._user_id)
-        return self._backup_folder_hash
 
     @override
     async def async_upload_backup(
@@ -261,9 +254,8 @@ class DrimeBackupAgent(BackupAgent):
 
         async def _list_metadata_files() -> dict[str, DrimeAgentBackup]:
             """List metadata files."""
-            bfh = await self.get_backup_folder_hash()
-            _LOGGER.debug("Fetching entries for backup folder hash: %s", bfh)
-            backup_folder_contents = await self._client.get_file_entries(bfh)
+            _LOGGER.debug("Fetching entries for backup folder hash: %s", self._backup_folder_hash)
+            backup_folder_contents = await self._client.get_file_entries(self._backup_folder_hash)
 
             backup_files = get_backup_file_pairs(backup_folder_contents["data"])
             _LOGGER.debug(f"backup_files: {backup_files}")
