@@ -19,7 +19,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import DrimeApiClientAuthenticationError, DrimeClient
-from .const import CONF_EXTRA_PATHS, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
+from .const import CONF_EXTRA_PATHS, CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
 from .data import DrimeConfigEntry
 
 
@@ -59,7 +59,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=f"Drime-{_uid}",
-                    data=user_input | {CONF_NAME: _subscription},
+                    data=user_input | {CONF_NAME: _subscription, CONF_USER_ID: _uid},
                 )
 
         integration = async_get_loaded_integration(self.hass, DOMAIN)
@@ -126,6 +126,7 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
         self.options = self.config_entry.options.copy()
         self.api_key = self.config_entry.data[CONF_API_KEY]
+        self.user_id = self.config_entry.data[CONF_USER_ID]
 
         _errors = {}
         if user_input is not None:
@@ -168,10 +169,7 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
             session=async_create_clientsession(self.hass),
         )
 
-        user = await client.get_user()
-        user_id = user.get("user", {}).get("id")
-
-        fids = await client.get_folders_ids(folders, user_id)
+        fids = await client.get_folders_ids(folders, self.user_id)
         for i, folder in enumerate(folders):
             if folder.strip(" /") == fids[i][0].strip(" /"):
                 LOGGER.debug("Hash for extra path %s: %s", folder, fids[i][2])

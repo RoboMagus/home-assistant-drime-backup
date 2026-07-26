@@ -5,14 +5,14 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from homeassistant.const import CONF_API_KEY, Platform
+from homeassistant.const import CONF_API_KEY, CONF_PATH, Platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
-from .const import DOMAIN, LOGGER
+from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
 from .coordinator import DrimeUpdateCoordinator
-from .data import DrimeConfigData
+from .data import DrimeRuntimeData
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -34,13 +34,16 @@ async def async_setup_entry(
         name=DOMAIN,
         update_interval=timedelta(hours=1),
     )
-    entry.runtime_data = DrimeConfigData(
-        client=DrimeClient(
-            api_key=entry.data[CONF_API_KEY],
-            session=async_get_clientsession(hass),
-        ),
-        coordinator=coordinator,
+
+    client = DrimeClient(
+        api_key=entry.data[CONF_API_KEY],
+        session=async_get_clientsession(hass),
     )
+
+    _, _, folder_hash = await client.get_folder_id(
+        entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), entry.data.get(CONF_USER_ID)
+    )
+    entry.runtime_data = DrimeRuntimeData(client=client, coordinator=coordinator, backup_folder_hash=folder_hash)
 
     def async_notify_backup_listeners() -> None:
         for listener in hass.data.get(DATA_BACKUP_AGENT_LISTENERS, []):
@@ -48,7 +51,6 @@ async def async_setup_entry(
 
     entry.async_on_unload(entry.async_on_state_change(async_notify_backup_listeners))
 
-    await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

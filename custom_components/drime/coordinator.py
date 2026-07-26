@@ -9,7 +9,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DrimeApiClientAuthenticationError
-from .const import CONF_EXTRA_PATHS, DEFAULT_BACKUP_PATH, LOGGER
+from .const import CONF_EXTRA_PATHS, DEFAULT_BACKUP_PATH, CONF_USER_ID, LOGGER
 from .data import DrimeConfigEntry, DrimeData
 
 
@@ -23,8 +23,13 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
         try:
             space_usage = await self.config_entry.runtime_data.client.get_space_usage()
 
-            folders = (await self.config_entry.runtime_data.client.get_folders(self.user_id)).get("folders", [])
-            folder_hashes = [self.backup_folder_hash, *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values()]
+            folders = (
+                await self.config_entry.runtime_data.client.get_folders(self.config_entry.data.get(CONF_USER_ID))
+            ).get("folders", [])
+            folder_hashes = [
+                self.config_entry.runtime_data.backup_folder_hash,
+                *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values(),
+            ]
             folder_sizes = {
                 f["hash"]: f["file_size"] for f in folders if f["type"] == "folder" and f["hash"] in folder_hashes
             }
@@ -34,7 +39,7 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
                 100 * space_usage["used"] / space_usage["available"],
                 space_usage["used"],
                 space_usage["available"],
-                folder_sizes[self.backup_folder_hash],
+                folder_sizes[self.config_entry.runtime_data.backup_folder_hash],
                 folder_sizes,
             )
         except DrimeApiClientAuthenticationError as exception:
@@ -42,12 +47,3 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
             raise ConfigEntryAuthFailed from exception
         except Exception as exception:
             raise UpdateFailed from exception
-
-    async def async_initialize(self) -> None:
-        """Initialize the coordinator."""
-        user = await self.config_entry.runtime_data.client.get_user()
-        self.user_id = user.get("user", {}).get("id")
-
-        _, _, self.backup_folder_hash = await self.config_entry.runtime_data.client.get_folder_id(
-            self.config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), self.user_id
-        )

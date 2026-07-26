@@ -12,15 +12,16 @@ if TYPE_CHECKING:
     from .coordinator import DrimeUpdateCoordinator
 
 
-type DrimeConfigEntry = ConfigEntry[DrimeConfigData]
+type DrimeConfigEntry = ConfigEntry[DrimeRuntimeData]
 
 
 @dataclass
-class DrimeConfigData:
+class DrimeRuntimeData:
     """Data for the Drime integration."""
 
     client: DrimeClient
     coordinator: DrimeUpdateCoordinator
+    backup_folder_hash: str
 
 
 @dataclass

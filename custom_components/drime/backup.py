@@ -25,7 +25,7 @@ from homeassistant.util.async_ import gather_with_limited_concurrency
 from homeassistant.util.hass_dict import HassKey
 from homeassistant.util.json import JSON_DECODE_EXCEPTIONS, json_loads_object
 
-from .const import DEFAULT_BACKUP_PATH, DOMAIN
+from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
 from .data import DrimeConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -147,16 +147,14 @@ class DrimeBackupAgent(BackupAgent):
         self._client = config_entry.runtime_data.client
         self._backup_path = config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH)
         self._backup_folder_hash = None
+        self._user_id = config_entry.data.get(CONF_USER_ID)
         self._cache_expiration = time()
 
     async def get_backup_folder_hash(self) -> str:
         """Retrieve and cache folder hash for for backup directory."""
         if not self._backup_folder_hash:
             _LOGGER.debug("get_backup_folder_hash")
-            user = await self._client.get_user()
-            _, _, self._backup_folder_hash = await self._client.get_folder_id(
-                self._backup_path, user.get("user", {}).get("id")
-            )
+            _, _, self._backup_folder_hash = await self._client.get_folder_id(self._backup_path, self._user_id)
         return self._backup_folder_hash
 
     @override

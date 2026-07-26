@@ -173,7 +173,7 @@ class DrimeClient:
 
     async def get_workspace(self, workspace_id: int) -> Any:
         """https://docs.drime.cloud/api-reference/user/get-workspace."""
-        return await self._api_wrapper("GET", f"/workspace/{workspace_id}")
+        return await self._api_wrapper("GET", f"/workspace/{int(workspace_id)}")
 
     async def get_space_usage(self, workspace_id: int = 0) -> Any:
         """https://docs.drime.cloud/api-reference/user/get-space-usage."""
@@ -193,14 +193,14 @@ class DrimeClient:
             params={"workspaceId": workspace_id},
         )
 
-    async def get_folder_id(self, path: str, user_id: int) -> Any:
+    async def get_folder_id(self, path: str, user_id: int) -> tuple[str, int, str]:
         """Get folder id."""
         folders = (await self.get_folders(user_id)).get("folders", [])
         fid = _get_folder_id(path.strip(" /"), folders)
-        LOGGER.warning(fid)
+        LOGGER.debug("get_folder_id(%s): %r", path, fid)
         return fid
 
-    async def get_folders_ids(self, paths: list[str], user_id: int) -> Any:
+    async def get_folders_ids(self, paths: list[str], user_id: int) -> list[tuple[str, int, str]]:
         """Get folder id."""
         folders = (await self.get_folders(user_id)).get("folders", [])
         return [_get_folder_id(path.strip(" /"), folders) for path in paths]
