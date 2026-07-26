@@ -31,3 +31,4 @@ class DrimeData:
     storage_used: int
     storage_available: int
     total_backup_size: int
+    folder_sizes: dict[str, int]

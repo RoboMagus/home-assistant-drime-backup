@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, override
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_PATH
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import DrimeApiClientAuthenticationError, DrimeClient
-from .const import DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
+from .const import CONF_EXTRA_PATHS, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
+from .data import DrimeConfigEntry
+
+
+class PathNotFound(Exception):
+    """Error to indicate path does not exist on Drime."""
 
 
 class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -20,6 +32,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @override
     async def async_step_user(
         self,
         user_input: dict | None = None,
@@ -33,7 +46,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except DrimeApiClientAuthenticationError as exception:
                 LOGGER.warning(exception)
-                _errors["base"] = "auth"
+                _errors["base"] = "invalid_auth"
             except Exception as exception:  # noqa: BLE001
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
@@ -82,7 +95,20 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=_errors,
         )
 
-    async def _test_credentials(self, api_key: str):
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
+        """Handle reconfiguration flow."""
+        return await self.async_step_user(user_input)
+
+    @staticmethod
+    @callback
+    @override
+    def async_get_options_flow(
+        config_entry: DrimeConfigEntry,
+    ) -> DrimeOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return DrimeOptionsFlowHandler()
+
+    async def _test_credentials(self, api_key: str) -> dict[str, Any]:
         """Validate credentials."""
         client = DrimeClient(
             api_key=api_key,
@@ -91,3 +117,65 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         user = await client.get_user()
         LOGGER.debug(user)
         return user
+
+
+class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
+        """Manage the options."""
+        self.options = self.config_entry.options.copy()
+        self.api_key = self.config_entry.data[CONF_API_KEY]
+
+        _errors = {}
+        if user_input is not None:
+            try:
+                folders_resp = await self._test_folders(folders=user_input[CONF_EXTRA_PATHS])
+                extra_paths = {f"/{f[0]}": f[2] for f in folders_resp}
+            except PathNotFound as exception:
+                LOGGER.warning("Drime Options Flow path not found: %s", exception)
+                _errors["base"] = f"Path not found: {exception}"
+            except Exception as exception:  # noqa: BLE001
+                LOGGER.exception(exception)
+                _errors["base"] = "unknown"
+            else:
+                return self.async_create_entry(
+                    title=f"{self.config_entry.title}-Options", data={CONF_EXTRA_PATHS: extra_paths}
+                )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_EXTRA_PATHS,
+                        default=list(self.options.get(CONF_EXTRA_PATHS, {}).keys()),
+                    ): SelectSelector(
+                        SelectSelectorConfig(options=[], custom_value=True, multiple=True, mode=SelectSelectorMode.LIST)
+                    ),
+                }
+            ),
+            errors=_errors,
+        )
+
+    async def _test_folders(self, folders: list[str]) -> Any:
+        """Validate requested folders."""
+        if not folders:
+            return []
+
+        client = DrimeClient(
+            api_key=self.api_key,
+            session=async_create_clientsession(self.hass),
+        )
+
+        user = await client.get_user()
+        user_id = user.get("user", {}).get("id")
+
+        fids = await client.get_folders_ids(folders, user_id)
+        for i, folder in enumerate(folders):
+            if folder.strip(" /") == fids[i][0].strip(" /"):
+                LOGGER.debug("Hash for extra path %s: %s", folder, fids[i][2])
+            else:
+                LOGGER.debug("Path not found: %s (%s)", folder, fids[i][0])
+                raise PathNotFound(folder)
+        return fids

@@ -200,6 +200,11 @@ class DrimeClient:
         LOGGER.warning(fid)
         return fid
 
+    async def get_folders_ids(self, paths: list[str], user_id: int) -> Any:
+        """Get folder id."""
+        folders = (await self.get_folders(user_id)).get("folders", [])
+        return [_get_folder_id(path.strip(" /"), folders) for path in paths]
+
     async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
         """https://docs.drime.cloud/api-reference/files/download-file."""
         return await self._stream_wrapper("GET", f"/file-entries/download/{entry_hash}", timeout=timeout)

@@ -1,0 +1,40 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Service is already configured"
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "api_key": "API key",
+          "path": "Path"
+        },
+        "data_description": {
+          "api_key": "Settings > Developers > Create Token",
+          "path": "Full path of directory where HomeAssistant backups will be stored."
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "path_not_found": "Path not found on Drime storage."
+    },
+    "step": {
+      "init": {
+        "data": {
+          "extra_paths": "Extra paths"
+        },
+        "data_description": {
+          "extra_paths": "Extra folder paths to track."
+        },
+        "description": "Select additional paths to track storage usage for.",
+        "title": "Options Drime"
+      }
+    }
+  }
+}

@@ -24,11 +24,15 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
             space_usage = await self.config_entry.runtime_data.client.get_space_usage()
             backup_folder_data = await self.config_entry.runtime_data.client.get_file_entries(self.backup_folder_hash)
 
+            folders = (await self.config_entry.runtime_data.client.get_folders(self.user_id)).get("folders", [])
+            folder_sizes = {f["hash"]: f["file_size"] for f in folders if f["type"] == "folder"}
+
             return DrimeData(
                 100 * space_usage["used"] / space_usage["available"],
                 space_usage["used"],
                 space_usage["available"],
                 backup_folder_data["folder"]["file_size"],
+                folder_sizes,
             )
         except DrimeApiClientAuthenticationError as exception:
             LOGGER.error("Drime authentication error. Please check API key permissions.")

@@ -8,4 +8,5 @@ DOMAIN = "drime"
 
 API_BASE_URL = "https://app.drime.cloud/api/v1"
 
+CONF_EXTRA_PATHS = "extra_paths"
 DEFAULT_BACKUP_PATH = "/HomeAssistant"
