@@ -243,6 +243,8 @@ class DrimeClient:
         """https://docs.drime.cloud/api-reference/files/download-file."""
         return await self._stream_wrapper("GET", f"/file-entries/download/{entry_hash}", timeout=timeout)
 
-    async def delete_entries(self, entry_ids: list[int]) -> Any:
+    async def delete_entries(self, entry_ids: list[int], *, permanent: bool = False) -> Any:
         """https://docs.drime.cloud/api-reference/files/delete-entries."""
-        return await self._api_wrapper("POST", "/file-entries/delete", json={"entryIds": entry_ids})
+        return await self._api_wrapper(
+            "POST", "/file-entries/delete", json={"entryIds": entry_ids, "deleteForever": permanent}
+        )

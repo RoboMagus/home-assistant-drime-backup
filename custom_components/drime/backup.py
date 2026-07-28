@@ -242,7 +242,7 @@ class DrimeBackupAgent(BackupAgent):
         )
 
         try:
-            await self._client.delete_entries([backup.meta_id, backup.tar_id])
+            await self._client.delete_entries([backup.meta_id, backup.tar_id], permanent=True)
         except Exception as err:
             raise BackupAgentError(f"Failed to delete backup: {err}") from err
 
