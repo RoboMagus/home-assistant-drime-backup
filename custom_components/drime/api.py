@@ -9,6 +9,7 @@ import aiohttp
 import asyncio
 
 from .const import API_BASE_URL, LOGGER
+from .data import DrimeFileInfo
 
 
 class DrimeApiClientError(Exception):
@@ -37,7 +38,7 @@ def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     response.raise_for_status()
 
 
-def _get_folder_id(path: str, folders: list[dict[str, Any]]) -> tuple[str, int, str]:
+def _get_folder_id(path: str, folders: list[dict[str, Any]]) -> DrimeFileInfo:
     """Parse path to find id of (nested) folder."""
     current_folder_id = None
     directory_tree = [d for d in path.split("/") if d.strip()]
@@ -59,10 +60,10 @@ def _get_folder_id(path: str, folders: list[dict[str, Any]]) -> tuple[str, int, 
                 break
         if not d_found:
             LOGGER.warning(f"Path not found @ {i}: {path}")
-            return ("/".join(directory_tree[:i]), current_folder_id or 0, folder_hash)
+            return DrimeFileInfo(name="/".join(directory_tree[:i]), hash=folder_hash, id=current_folder_id or 0)
 
     LOGGER.info(f"Found: /{path}")
-    return ("/".join(directory_tree), current_folder_id or 0, folder_hash)
+    return DrimeFileInfo(name="/".join(directory_tree), hash=folder_hash, id=current_folder_id or 0)
 
 
 class DrimeClient:
@@ -193,21 +194,21 @@ class DrimeClient:
             params={"workspaceId": workspace_id},
         )
 
-    async def get_folder_id(self, path: str, user_id: int) -> tuple[str, int, str]:
+    async def get_folder_id(self, path: str, user_id: int) -> DrimeFileInfo:
         """Get folder id."""
         folders = (await self.get_folders(user_id)).get("folders", [])
         fid = _get_folder_id(path.strip(" /"), folders)
         LOGGER.debug("get_folder_id(%s): %r", path, fid)
         return fid
 
-    async def get_folders_ids(self, paths: list[str], user_id: int) -> list[tuple[str, int, str]]:
+    async def get_folders_ids(self, paths: list[str], user_id: int) -> list[DrimeFileInfo]:
         """Get folder id."""
         folders = (await self.get_folders(user_id)).get("folders", [])
         return [_get_folder_id(path.strip(" /"), folders) for path in paths]
 
-    async def create_folder(self, name: str, parent_folder_id: int | None, workspace_id: int = 0) -> Any:
+    async def create_folder(self, name: str, parent_folder_id: int | None, workspace_id: int = 0) -> DrimeFileInfo:
         """https://docs.drime.cloud/api-reference/files/create-folder."""
-        return await self._api_wrapper(
+        result = await self._api_wrapper(
             "POST",
             "/folders",
             params={"workspaceId": workspace_id},
@@ -217,6 +218,7 @@ class DrimeClient:
                 "parentId": parent_folder_id or None,  # Root folder needs None instead of 0 for parent!
             },
         )
+        return DrimeFileInfo.from_dict(result["folder"])
 
     async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
         """https://docs.drime.cloud/api-reference/files/download-file."""

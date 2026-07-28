@@ -14,7 +14,7 @@ from .api import DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
 from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
 from .coordinator import DrimeUpdateCoordinator
-from .data import DrimeRuntimeData
+from .data import DrimeFileInfo, DrimeRuntimeData
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -42,10 +42,10 @@ async def async_setup_entry(
         session=async_get_clientsession(hass),
     )
 
-    drime_folder_path, _, folder_hash = await client.get_folder_id(
+    backup_folder_info = await client.get_folder_id(
         conf_folder_path := entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), entry.data.get(CONF_USER_ID)
     )
-    if drime_folder_path.strip(" /") != conf_folder_path.strip(" /"):
+    if backup_folder_info.name.strip(" /") != conf_folder_path.strip(" /"):
         async_create_issue(
             hass,
             DOMAIN,
@@ -60,7 +60,7 @@ async def async_setup_entry(
     else:  # noqa: RET506
         async_delete_issue(hass, DOMAIN, f"drime_backup_folder_not_found_{entry.unique_id}")
 
-    entry.runtime_data = DrimeRuntimeData(client=client, coordinator=coordinator, backup_folder_hash=folder_hash)
+    entry.runtime_data = DrimeRuntimeData(client=client, coordinator=coordinator, backup_folder=backup_folder_info)
 
     def async_notify_backup_listeners() -> None:
         for listener in hass.data.get(DATA_BACKUP_AGENT_LISTENERS, []):

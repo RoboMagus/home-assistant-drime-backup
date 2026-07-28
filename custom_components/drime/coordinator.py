@@ -27,7 +27,7 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
                 await self.config_entry.runtime_data.client.get_folders(self.config_entry.data.get(CONF_USER_ID))
             ).get("folders", [])
             folder_hashes = [
-                self.config_entry.runtime_data.backup_folder_hash,
+                self.config_entry.runtime_data.backup_folder.hash,
                 *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values(),
             ]
             folder_sizes = {
@@ -39,7 +39,7 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
                 100 * space_usage["used"] / space_usage["available"],
                 space_usage["used"],
                 space_usage["available"],
-                folder_sizes[self.config_entry.runtime_data.backup_folder_hash],
+                folder_sizes[self.config_entry.runtime_data.backup_folder.hash],
                 folder_sizes,
             )
         except DrimeApiClientAuthenticationError as exception:

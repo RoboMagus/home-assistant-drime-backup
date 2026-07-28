@@ -26,7 +26,7 @@ from homeassistant.util.hass_dict import HassKey
 from homeassistant.util.json import JSON_DECODE_EXCEPTIONS, json_loads_object
 
 from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
-from .data import DrimeConfigEntry
+from .data import DrimeConfigEntry, DrimeFileInfo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,25 +85,6 @@ def async_register_backup_agents_listener(
 
     return remove_listener
 
-
-@dataclass(frozen=True, kw_only=True)
-class DrimeFileInfo:
-    """Drime file info class."""
-
-    name: str
-    hash: str
-    id: int
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> Self:
-        """Create an instance from a JSON serialization."""
-        return cls(
-            name=data["name"],
-            hash=data["hash"],
-            id=data["id"],
-        )
-
-
 @dataclass(frozen=True, kw_only=True)
 class BackupFilePair:
     """Drime backup file pair class."""
@@ -145,7 +126,7 @@ class DrimeBackupAgent(BackupAgent):
         self.unique_id = slugify(config_entry.unique_id)
         self.hass = hass
         self._client = config_entry.runtime_data.client
-        self._backup_folder_hash = config_entry.runtime_data.backup_folder_hash
+        self._backup_folder = config_entry.runtime_data.backup_folder
         self._backup_path = config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH)
         self._user_id = config_entry.data.get(CONF_USER_ID)
         self._cache_expiration = time()
@@ -254,8 +235,8 @@ class DrimeBackupAgent(BackupAgent):
 
         async def _list_metadata_files() -> dict[str, DrimeAgentBackup]:
             """List metadata files."""
-            _LOGGER.debug("Fetching entries for backup folder hash: %s", self._backup_folder_hash)
-            backup_folder_contents = await self._client.get_file_entries(self._backup_folder_hash)
+            _LOGGER.debug("Fetching entries for backup folder hash: %s", self._backup_folder.hash)
+            backup_folder_contents = await self._client.get_file_entries(self._backup_folder.hash)
 
             backup_files = get_backup_file_pairs(backup_folder_contents["data"])
             _LOGGER.debug(f"backup_files: {backup_files}")

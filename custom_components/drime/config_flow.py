@@ -127,19 +127,17 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             session=async_create_clientsession(self.hass),
         )
         path = path.strip(" /")
-        existing_path, folder_id, folder_hash = await client.get_folder_id(path, user_id)
-        if existing_path == path:
-            LOGGER.debug("Backup directory found: %s (%s)", path, folder_hash)
+        folder_info = await client.get_folder_id(path, user_id)
+        if folder_info.name == path:
+            LOGGER.debug("Backup directory found: %s (%s)", path, folder_info.hash)
             return
 
         LOGGER.info("Creating backup directory '%s'", path)
-        path_remainder = [d for d in path.removeprefix(existing_path).strip(" /").split("/") if d.strip()]
+        path_remainder = [d for d in path.removeprefix(folder_info.name).strip(" /").split("/") if d.strip()]
         for d in path_remainder:
-            LOGGER.debug("Creating dir %s on parent %d", d, folder_id)
-            result = await client.create_folder(d, folder_id)
-            folder_id = result["folder"]["id"]
-            folder_hash = result["folder"]["hash"]
-        LOGGER.debug("Created backup directory %s (%s)", path, folder_hash)
+            LOGGER.debug("Creating dir %s on parent %d", d, folder_info.id)
+            folder_info = await client.create_folder(d, folder_info.id)
+        LOGGER.debug("Created backup directory %s (%s)", path, folder_info.hash)
 
 
 class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
@@ -194,9 +192,9 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
 
         fids = await client.get_folders_ids(folders, self.user_id)
         for i, folder in enumerate(folders):
-            if folder.strip(" /") == fids[i][0].strip(" /"):
-                LOGGER.debug("Hash for extra path %s: %s", folder, fids[i][2])
+            if folder.strip(" /") == fids[i].name.strip(" /"):
+                LOGGER.debug("Hash for extra path %s: %s", folder, fids[i].hash)
             else:
-                LOGGER.debug("Path not found: %s (%s)", folder, fids[i][0])
+                LOGGER.debug("Path not found: %s (%s)", folder, fids[i].name)
                 raise PathNotFound(folder)
         return fids
