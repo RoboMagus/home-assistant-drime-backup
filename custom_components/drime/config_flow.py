@@ -153,7 +153,7 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             try:
                 folders_resp = await self._test_folders(folders=user_input[CONF_EXTRA_PATHS])
-                extra_paths = {f"/{f[0]}": f[2] for f in folders_resp}
+                extra_paths = {f"/{f.name}": f.hash for f in folders_resp}
             except PathNotFound as exception:
                 LOGGER.warning("Drime Options Flow path not found: %s", exception)
                 _errors["base"] = f"Path not found: {exception}"
