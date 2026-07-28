@@ -82,7 +82,8 @@ class DrimeClient:
         self,
         method: str,
         endpoint: str,
-        data: dict | None = None,
+        json: dict | None = None,
+        data: dict | aiohttp.FormData | None = None,
         headers: dict | None = None,
         params: dict | None = None,
     ) -> Any:
@@ -94,7 +95,8 @@ class DrimeClient:
                     url=API_BASE_URL + endpoint,
                     headers=self._auth_headers | (headers or {}),
                     params=params,
-                    json=data,
+                    json=json,
+                    data=data,
                 )
                 _verify_response_or_raise(response)
                 data = await response.json()
@@ -213,12 +215,29 @@ class DrimeClient:
             "/folders",
             params={"workspaceId": workspace_id},
             headers={"Content-Type": "application/json"},
-            data={
+            json={
                 "name": name,
                 "parentId": parent_folder_id or None,  # Root folder needs None instead of 0 for parent!
             },
         )
         return DrimeFileInfo.from_dict(result["folder"])
+
+    async def upload_file_simple(
+        self, parent_id: int, filename: str, content: Any, content_type: str, workspace_id: int = 0
+    ) -> Any:
+        """https://docs.drime.cloud/api-reference/uploads/upload-file."""
+
+        data = aiohttp.FormData()
+        data.add_field("file", content, filename=filename, content_type=content_type)
+        data.add_field("parentId", str(parent_id))
+        if workspace_id:
+            data.add_field("workspaceId", str(workspace_id))
+
+        return await self._api_wrapper(
+            "POST",
+            "/uploads",
+            data=data,
+        )
 
     async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
         """https://docs.drime.cloud/api-reference/files/download-file."""
@@ -226,4 +245,4 @@ class DrimeClient:
 
     async def delete_entries(self, entry_ids: list[int]) -> Any:
         """https://docs.drime.cloud/api-reference/files/delete-entries."""
-        return await self._api_wrapper("POST", "/file-entries/delete", data={"entryIds": entry_ids})
+        return await self._api_wrapper("POST", "/file-entries/delete", json={"entryIds": entry_ids})

@@ -19,6 +19,7 @@ from homeassistant.components.backup import (
 from homeassistant.const import CONF_PATH
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.json import json_dumps
 from homeassistant.helpers.aiohttp_client import ChunkAsyncStreamIterator
 from homeassistant.util import slugify
 from homeassistant.util.async_ import gather_with_limited_concurrency
@@ -85,6 +86,7 @@ def async_register_backup_agents_listener(
 
     return remove_listener
 
+
 @dataclass(frozen=True, kw_only=True)
 class BackupFilePair:
     """Drime backup file pair class."""
@@ -146,8 +148,41 @@ class DrimeBackupAgent(BackupAgent):
         :param open_stream: A function returning an async iterator that yields bytes.
         :param backup: Metadata about the backup that should be uploaded.
         """
-        _LOGGER.error("async_download_backup NOT YET IMPLEMENTED")
-        raise BackupAgentError("Failed to upload backup")
+        (filename_tar, filename_meta) = suggested_filenames(backup)
+
+        file_data = bytearray()
+        stream = await open_stream()
+        async for chunk in stream:
+            file_data.extend(chunk)
+
+        _LOGGER.debug(
+            "Uploading backup %s, %r to %r",
+            filename_tar,
+            backup,
+            self._backup_folder,
+        )
+        start_time = time()
+        await self._client.upload_file_simple(
+            self._backup_folder.id, filename_tar, bytes(file_data), "application/x-tar"
+        )
+        elapsed_time = time() - start_time
+        _LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
+
+        _LOGGER.debug(
+            "Uploading meta %s to %r",
+            filename_meta,
+            self._backup_folder,
+        )
+        start_time = time()
+        await self._client.upload_file_simple(
+            self._backup_folder.id, filename_meta, json_dumps(backup.as_dict()), "application/json"
+        )
+        elapsed_time = time() - start_time
+        _LOGGER.debug("Uploaded %s in %.2fs", filename_meta, elapsed_time)
+
+        _LOGGER.debug("Uploading backup completed!")
+        # reset cache
+        self._cache_expiration = time()
 
     @override
     async def async_list_backups(self, **kwargs: Any) -> list[DrimeAgentBackup]:
@@ -195,8 +230,10 @@ class DrimeBackupAgent(BackupAgent):
 
         :param backup_id: The ID of the backup that was returned in async_list_backups.
         """
-        _LOGGER.debug("Deleting backup_id: %s", backup_id)
         backup = await self._find_backup_by_id(backup_id)
+        _LOGGER.debug(
+            "Deleting backup %s (%s): tar=%s, meta=%s", backup.name, backup.backup_id, backup.tar_hash, backup.meta_hash
+        )
 
         try:
             await self._client.delete_entries([backup.meta_id, backup.tar_id])
