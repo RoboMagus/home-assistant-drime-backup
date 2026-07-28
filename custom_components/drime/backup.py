@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Coroutine
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from functools import wraps
 from time import time
 from typing import Any, Self, override
@@ -19,6 +20,7 @@ from homeassistant.components.backup import (
 from homeassistant.const import CONF_PATH
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.json import json_dumps
 from homeassistant.helpers.aiohttp_client import ChunkAsyncStreamIterator
 from homeassistant.util import slugify
@@ -128,6 +130,7 @@ class DrimeBackupAgent(BackupAgent):
         self.unique_id = slugify(config_entry.unique_id)
         self.hass = hass
         self._client = config_entry.runtime_data.client
+        self._coordinator = config_entry.runtime_data.coordinator
         self._backup_folder = config_entry.runtime_data.backup_folder
         self._backup_path = config_entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH)
         self._user_id = config_entry.data.get(CONF_USER_ID)
@@ -181,6 +184,9 @@ class DrimeBackupAgent(BackupAgent):
         _LOGGER.debug("Uploaded %s in %.2fs", filename_meta, elapsed_time)
 
         _LOGGER.debug("Uploading backup completed!")
+
+        # Trigger sensor update
+        async_call_later(self.hass, 15, self._delayed_refresh_coordinator)
         # reset cache
         self._cache_expiration = time()
 
@@ -242,6 +248,8 @@ class DrimeBackupAgent(BackupAgent):
 
         _LOGGER.debug("Deleted backup '%s', with hashes (%s, %s)", backup.name, backup.meta_hash, backup.tar_hash)
 
+        # Trigger sensor update
+        async_call_later(self.hass, 15, self._delayed_refresh_coordinator)
         # reset cache
         self._cache_expiration = time()
 
@@ -299,3 +307,8 @@ class DrimeBackupAgent(BackupAgent):
             return backup
 
         raise BackupNotFound(f"Backup {backup_id} not found")
+
+    async def _delayed_refresh_coordinator(self, _now: datetime) -> None:
+        """Delayed call to coordinator refresh after backup operation."""
+        _LOGGER.debug("Refresh coordinator %s", _now)
+        return await self._coordinator.async_request_refresh()
