@@ -22,7 +22,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.json import json_dumps
-from homeassistant.helpers.aiohttp_client import ChunkAsyncStreamIterator
 from homeassistant.util import slugify
 from homeassistant.util.async_ import gather_with_limited_concurrency
 from homeassistant.util.hass_dict import HassKey
@@ -37,6 +36,10 @@ DATA_BACKUP_AGENT_LISTENERS: HassKey[list[Callable[[], None]]] = HassKey(f"{DOMA
 
 CACHE_TTL = 300
 METADATA_DOWNLOAD_CONCURRENCY = 4
+
+# Drime requires multipart uploads for files larger than 25MB
+# https://docs.drime.cloud/api-reference/multipart/create-multipart
+MULTIPART_MIN_PART_SIZE_BYTES = 25 * 1024 * 1024
 
 
 def suggested_filenames(backup: AgentBackup) -> tuple[str, str]:
@@ -153,23 +156,42 @@ class DrimeBackupAgent(BackupAgent):
         """
         (filename_tar, filename_meta) = suggested_filenames(backup)
 
-        file_data = bytearray()
-        stream = await open_stream()
-        async for chunk in stream:
-            file_data.extend(chunk)
+        if backup.size < MULTIPART_MIN_PART_SIZE_BYTES:
+            file_data = bytearray()
+            stream = await open_stream()
+            async for chunk in stream:
+                file_data.extend(chunk)
 
-        _LOGGER.debug(
-            "Uploading backup %s, %r to %r",
-            filename_tar,
-            backup,
-            self._backup_folder,
-        )
-        start_time = time()
-        await self._client.upload_file_simple(
-            self._backup_folder.id, filename_tar, bytes(file_data), "application/x-tar"
-        )
-        elapsed_time = time() - start_time
-        _LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
+            _LOGGER.debug(
+                "Uploading backup %s, %r to %r (Simple)",
+                filename_tar,
+                backup,
+                self._backup_folder,
+            )
+            start_time = time()
+            await self._client.upload_file_simple(
+                self._backup_folder.name, filename_tar, bytes(file_data), "application/x-tar", backup.size
+            )
+            elapsed_time = time() - start_time
+            _LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
+        else:
+            _LOGGER.debug(
+                "Uploading backup %s, %r to %r (Multi)",
+                filename_tar,
+                backup,
+                self._backup_folder,
+            )
+
+            start_time = time()
+            await self._client.upload_file_multipart(
+                self._backup_folder.name,
+                filename_tar,
+                open_stream,
+                "application/x-tar",
+                backup.size,
+            )
+            elapsed_time = time() - start_time
+            _LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
 
         _LOGGER.debug(
             "Uploading meta %s to %r",
@@ -178,7 +200,7 @@ class DrimeBackupAgent(BackupAgent):
         )
         start_time = time()
         await self._client.upload_file_simple(
-            self._backup_folder.id, filename_meta, json_dumps(backup.as_dict()), "application/json"
+            self._backup_folder.name, filename_meta, json_dumps(backup.as_dict()), "application/json", 0
         )
         elapsed_time = time() - start_time
         _LOGGER.debug("Uploaded %s in %.2fs", filename_meta, elapsed_time)

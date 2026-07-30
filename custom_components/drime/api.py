@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 
 import aiohttp
-import asyncio
 
 from .const import API_BASE_URL, LOGGER
 from .data import DrimeFileInfo
@@ -16,16 +17,16 @@ class DrimeApiClientError(Exception):
     """Exception to indicate a general API error."""
 
 
-class DrimeApiClientCommunicationError(
-    DrimeApiClientError,
-):
+class DrimeApiClientCommunicationError(DrimeApiClientError):
     """Exception to indicate a communication error."""
 
 
-class DrimeApiClientAuthenticationError(
-    DrimeApiClientError,
-):
+class DrimeApiClientAuthenticationError(DrimeApiClientError):
     """Exception to indicate an authentication error."""
+
+
+class DrimeUploadError(DrimeApiClientError):
+    """Exception to indicate upload error."""
 
 
 def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
@@ -89,30 +90,18 @@ class DrimeClient:
     ) -> Any:
         """Get information from the API."""
         try:
-            async with asyncio.timeout(15):
-                response = await self._session.request(
-                    method=method,
-                    url=API_BASE_URL + endpoint,
-                    headers=self._auth_headers | (headers or {}),
-                    params=params,
-                    json=json,
-                    data=data,
-                )
-                _verify_response_or_raise(response)
-                data = await response.json()
-                LOGGER.debug(
-                    "%s %s: %d >>\n%s",
-                    response.method,
-                    response.url,
-                    response.status,
-                    json.dumps(
-                        data,
-                        sort_keys=True,
-                        indent=2,
-                        default=lambda _: "<< Not JSON Serializable >>",
-                    ),
-                )
-                return data
+            response = await self._session.request(
+                method=method,
+                url=API_BASE_URL + endpoint,
+                headers=self._auth_headers | (headers or {}),
+                params=params,
+                json=json,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=15),
+            )
+            _verify_response_or_raise(response)
+            data = await response.json()
+            return data
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
             raise DrimeApiClientCommunicationError(
@@ -140,16 +129,16 @@ class DrimeClient:
     ) -> Any:
         """Get information from the API."""
         try:
-            async with asyncio.timeout(timeout or 60):
-                response = await self._session.request(
-                    method=method,
-                    url=API_BASE_URL + endpoint,
-                    headers=self._auth_headers | (headers or {}),
-                    params=params,
-                    json=data,
-                )
-                _verify_response_or_raise(response)
-                return response
+            response = await self._session.request(
+                method=method,
+                url=API_BASE_URL + endpoint,
+                headers=self._auth_headers | (headers or {}),
+                params=params,
+                json=data,
+                timeout=aiohttp.ClientTimeout(total=timeout or 60),
+            )
+            _verify_response_or_raise(response)
+            return response
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
             raise DrimeApiClientCommunicationError(
@@ -223,13 +212,16 @@ class DrimeClient:
         return DrimeFileInfo.from_dict(result["folder"])
 
     async def upload_file_simple(
-        self, parent_id: int, filename: str, content: Any, content_type: str, workspace_id: int = 0
+        self, path: str, filename: str, content: Any, content_type: str, _size: int, workspace_id: int = 0
     ) -> Any:
         """https://docs.drime.cloud/api-reference/uploads/upload-file."""
+        if not path.endswith("/"):
+            path = path + "/"
+        path += filename
 
         data = aiohttp.FormData()
         data.add_field("file", content, filename=filename, content_type=content_type)
-        data.add_field("parentId", str(parent_id))
+        data.add_field("relativePath", path)
         if workspace_id:
             data.add_field("workspaceId", str(workspace_id))
 
@@ -237,6 +229,236 @@ class DrimeClient:
             "POST",
             "/uploads",
             data=data,
+        )
+
+    # Multipart Upload Flow:
+    #  1. Create - Initialize the upload (create_multipart_upload)
+    #  2. Sign - Get presigned URLs for each part (sign_part_urls)
+    #   3. Upload - PUT each part to its URL
+    #  4. Complete - Finalize the upload (complete_multipart_upload)
+    #  5. Register - Create file entry (create_s3_entry)
+    async def upload_file_multipart(
+        self,
+        path: str,
+        filename: str,
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]]],
+        content_type: str,
+        file_size: int,
+        workspace_id: int = 0,
+    ) -> Any:
+        """Wrapper function to process multi-part uploads."""
+        # Based on aws_s3 / cloudflare_r2 backup integrations
+
+        if not path.endswith("/"):
+            path = path + "/"
+        path += filename
+
+        PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
+        NUM_PARTS_EXPECTED = math.ceil(file_size / PART_SIZE_BYTES)
+
+        extension = "tar"
+        init_response = await self.create_multipart_upload(
+            path, filename, content_type, file_size, extension, workspace_id
+        )
+        LOGGER.debug("Init response: %r", init_response)
+
+        upload_id = init_response.get("uploadId")
+        key = init_response.get("key")
+
+        if not upload_id or not key:
+            raise DrimeUploadError("Failed to initialize multipart upload")
+
+        try:
+            uploaded_parts: list[dict[str, Any]] = []
+            part_number = 1
+            buffer = bytearray()  # bytes buffer to store the data
+            offset = 0  # start index of unread data inside buffer
+            bytes_uploaded = 0
+
+            stream = await open_stream()
+            async for chunk in stream:
+                buffer.extend(chunk)
+                # Upload parts of exactly PART_SIZE_BYTES to ensure
+                # all non-trailing parts have the same size (defensive implementation)
+                view = memoryview(buffer)
+                try:
+                    while len(buffer) - offset >= PART_SIZE_BYTES:
+                        start = offset
+                        end = offset + PART_SIZE_BYTES
+                        part_data = view[start:end]
+                        offset = end
+
+                        LOGGER.debug("Signing parts: %r", [part_number])
+                        sign_response = await self.sign_part_urls(key, upload_id, [part_number])
+                        signed_urls = {u["partNumber"]: u["url"] for u in sign_response.get("urls", [])}
+
+                        signed_url = signed_urls.get(part_number)
+                        if not signed_url:
+                            raise DrimeUploadError(f"No signed URL for part {pn}")
+
+                        LOGGER.debug(
+                            "Uploading part number %d / %d, size %d",
+                            part_number,
+                            NUM_PARTS_EXPECTED,
+                            len(part_data),
+                        )
+                        response = await self._session.request(
+                            method="PUT",
+                            url=signed_url,
+                            headers={
+                                "Content-Type": "application/octet-stream",
+                                "Content-Length": str(len(part_data.tobytes())),
+                            },
+                            data=part_data.tobytes(),
+                        )
+                        LOGGER.debug("Upload response: %r", response)
+                        etag = response.headers.get("ETag", "")
+                        uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
+                        bytes_uploaded += len(part_data)
+                        # on_progress(bytes_uploaded=bytes_uploaded)
+                        part_number += 1
+                finally:
+                    view.release()
+
+                # Compact the buffer if the consumed offset
+                # has grown large enough. This avoids
+                # unnecessary memory copies when compacting
+                # after every part upload.
+                if offset and offset >= PART_SIZE_BYTES:
+                    buffer = bytearray(buffer[offset:])
+                    offset = 0
+
+            # Upload the final buffer as the last part (no minimum size requirement)
+            # Offset should be 0 after the last compaction, but we use it as the start
+            # index to be defensive in case the buffer was not compacted.
+            if offset < len(buffer):
+                remaining_data = memoryview(buffer)[offset:]
+                LOGGER.debug(
+                    "Uploading final part number %d / %d, size %d",
+                    part_number,
+                    NUM_PARTS_EXPECTED,
+                    len(remaining_data),
+                )
+                LOGGER.debug("Signing parts: %r", [part_number])
+                sign_response = await self.sign_part_urls(key, upload_id, [part_number])
+                signed_urls = {u["partNumber"]: u["url"] for u in sign_response.get("urls", [])}
+
+                signed_url = signed_urls.get(part_number)
+                if not signed_url:
+                    raise DrimeUploadError(f"No signed URL for part {pn}")
+
+                LOGGER.debug(
+                    "Uploading part number %d, size %d",
+                    part_number,
+                    len(part_data),
+                )
+                response = await self._session.request(
+                    method="PUT",
+                    url=signed_url,
+                    headers={
+                        "Content-Type": "application/octet-stream",
+                        "Content-Length": str(len(remaining_data)),
+                    },
+                    data=remaining_data.tobytes(),
+                )
+                LOGGER.debug("Upload response: %r", response)
+                etag = response.headers.get("ETag", "")
+                uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
+                bytes_uploaded += len(remaining_data)
+                # on_progress(bytes_uploaded=bytes_uploaded)
+
+            parts_response = await self.get_uploaded_parts(key, upload_id)
+            LOGGER.warning(parts_response)
+
+            LOGGER.debug("Complete with parts: %r", uploaded_parts)
+            try:
+                complete_response = await self.complete_multipart_upload(key, upload_id, uploaded_parts)
+                LOGGER.debug("Complete response: %r", complete_response)
+            except Exception as e:
+                LOGGER.error("Complete exception: %s", e)
+
+            uuid = key.split("/")[-1]
+            create_s3_response = await self.create_s3_entry(
+                uuid, filename, file_size, content_type, extension, path, workspace_id
+            )
+            LOGGER.debug("Create S3 response: %r", create_s3_response)
+            return create_s3_response
+
+        except Exception as e:
+            LOGGER.error("Multipart upload error! Calling abort.")
+            try:
+                abort_response = await self.abort_multipart_upload(key, upload_id)
+                LOGGER.debug("Abort status: %s", abort_response)
+            except Exception as e2:  # noqa: BLE001
+                LOGGER.exception("Exception during abort_multipart_upload: %s", e2)
+            raise DrimeUploadError(f"Multipart upload failed: {e}") from e
+
+    async def create_multipart_upload(
+        self, path: str, filename: str, mime: str, size: int, extension: str, workspace_id: int = 0
+    ) -> Any:
+        """https://docs.drime.cloud/api-reference/multipart/create-multipart."""
+        return await self._api_wrapper(
+            "POST",
+            "/s3/multipart/create",
+            json={
+                "filename": filename,
+                "mime": mime,
+                "size": size,
+                "extension": extension,
+                "relativePath": path,
+                "workspaceId": workspace_id,
+            },
+        )
+
+    async def sign_part_urls(self, key: str, upload_id: str, part_numbers: list[int]) -> Any:
+        """https://docs.drime.cloud/api-reference/multipart/sign-part-urls."""
+        return await self._api_wrapper(
+            "POST",
+            "/s3/multipart/batch-sign-part-urls",
+            json={"key": key, "uploadId": upload_id, "partNumbers": part_numbers},
+        )
+
+    async def get_uploaded_parts(self, key: str, upload_id: str) -> Any:
+        """https://docs.drime.cloud/api-reference/multipart/get-uploaded-parts."""
+        return await self._api_wrapper(
+            "POST",
+            "/s3/multipart/get-uploaded-parts",
+            json={"key": key, "uploadId": upload_id},
+        )
+
+    async def complete_multipart_upload(self, key: str, upload_id: str, parts: list[dict[str, Any]]) -> Any:
+        """https://docs.drime.cloud/api-reference/multipart/complete-multipart."""
+        return await self._api_wrapper(
+            "POST",
+            "/s3/multipart/complete",
+            json={"key": key, "uploadId": upload_id, "parts": parts},
+        )
+
+    async def abort_multipart_upload(self, key: str, upload_id: str) -> Any:
+        """https://docs.drime.cloud/api-reference/multipart/abort-multipart."""
+        return await self._api_wrapper(
+            "POST",
+            "/s3/multipart/abort",
+            json={"key": key, "uploadId": upload_id},
+        )
+
+    async def create_s3_entry(
+        self, uuid: str, filename: str, size: int, mime: str, extension: str, path: str, workspace_id: int = 0
+    ) -> Any:
+        """https://docs.drime.cloud/api-reference/uploads/create-s3-entry."""
+        return await self._api_wrapper(
+            "POST",
+            "/s3/entries",
+            json={
+                "filename": uuid,
+                "size": size,
+                "clientName": filename,
+                "clientMime": mime,
+                "clientExtension": extension,
+                # "parentId": parent_id,
+                "relativePath": path,
+                "workspaceId": workspace_id,
+            },
         )
 
     async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
