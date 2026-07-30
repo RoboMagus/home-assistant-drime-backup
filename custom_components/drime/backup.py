@@ -187,6 +187,7 @@ class DrimeBackupAgent(BackupAgent):
                 self._backup_folder.name,
                 filename_tar,
                 open_stream,
+                on_progress,
                 "application/x-tar",
                 backup.size,
             )

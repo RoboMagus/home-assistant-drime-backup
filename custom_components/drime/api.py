@@ -8,9 +8,12 @@ from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 
 import aiohttp
+from homeassistant.components.backup import OnProgressCallback
 
 from .const import API_BASE_URL, LOGGER
 from .data import DrimeFileInfo
+
+PRINT_UPLOADED_PARTS = False
 
 
 class DrimeApiClientError(Exception):
@@ -242,6 +245,7 @@ class DrimeClient:
         path: str,
         filename: str,
         open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]]],
+        on_progress: OnProgressCallback,
         content_type: str,
         file_size: int,
         workspace_id: int = 0,
@@ -260,13 +264,30 @@ class DrimeClient:
         init_response = await self.create_multipart_upload(
             path, filename, content_type, file_size, extension, workspace_id
         )
-        LOGGER.debug("Init response: %r", init_response)
 
         upload_id = init_response.get("uploadId")
         key = init_response.get("key")
 
         if not upload_id or not key:
             raise DrimeUploadError("Failed to initialize multipart upload")
+
+        LOGGER.debug("Initialized MultiPart upload: %s", key)
+
+        signed_urls: dict[int, str] = {}
+
+        async def get_signed_url(num: int) -> str:
+            """Batch pre-signed urls."""
+            if not (signed_url := signed_urls.pop(num, None)):
+                batch_size = min(NUM_PARTS_EXPECTED - num + 1, 12)
+                part_numbers = list(range(num, num + batch_size))
+                LOGGER.debug("Signing parts: %r", part_numbers)
+                sign_response = await self.sign_part_urls(key, upload_id, part_numbers)
+                signed_urls.update({u["partNumber"]: u["url"] for u in sign_response.get("urls", [])})
+
+                signed_url = signed_urls.pop(num, None)
+                if not signed_url:
+                    raise DrimeUploadError(f"No signed URL for part {num}")
+            return signed_url
 
         try:
             uploaded_parts: list[dict[str, Any]] = []
@@ -288,14 +309,7 @@ class DrimeClient:
                         part_data = view[start:end]
                         offset = end
 
-                        LOGGER.debug("Signing parts: %r", [part_number])
-                        sign_response = await self.sign_part_urls(key, upload_id, [part_number])
-                        signed_urls = {u["partNumber"]: u["url"] for u in sign_response.get("urls", [])}
-
-                        signed_url = signed_urls.get(part_number)
-                        if not signed_url:
-                            raise DrimeUploadError(f"No signed URL for part {pn}")
-
+                        signed_url = await get_signed_url(part_number)
                         LOGGER.debug(
                             "Uploading part number %d / %d, size %d",
                             part_number,
@@ -311,11 +325,10 @@ class DrimeClient:
                             },
                             data=part_data.tobytes(),
                         )
-                        LOGGER.debug("Upload response: %r", response)
                         etag = response.headers.get("ETag", "")
                         uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
                         bytes_uploaded += len(part_data)
-                        # on_progress(bytes_uploaded=bytes_uploaded)
+                        on_progress(bytes_uploaded=bytes_uploaded)
                         part_number += 1
                 finally:
                     view.release()
@@ -339,19 +352,7 @@ class DrimeClient:
                     NUM_PARTS_EXPECTED,
                     len(remaining_data),
                 )
-                LOGGER.debug("Signing parts: %r", [part_number])
-                sign_response = await self.sign_part_urls(key, upload_id, [part_number])
-                signed_urls = {u["partNumber"]: u["url"] for u in sign_response.get("urls", [])}
-
-                signed_url = signed_urls.get(part_number)
-                if not signed_url:
-                    raise DrimeUploadError(f"No signed URL for part {pn}")
-
-                LOGGER.debug(
-                    "Uploading part number %d, size %d",
-                    part_number,
-                    len(part_data),
-                )
+                signed_url = await get_signed_url(part_number)
                 response = await self._session.request(
                     method="PUT",
                     url=signed_url,
@@ -361,27 +362,28 @@ class DrimeClient:
                     },
                     data=remaining_data.tobytes(),
                 )
-                LOGGER.debug("Upload response: %r", response)
                 etag = response.headers.get("ETag", "")
                 uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
                 bytes_uploaded += len(remaining_data)
-                # on_progress(bytes_uploaded=bytes_uploaded)
+                on_progress(bytes_uploaded=bytes_uploaded)
 
-            parts_response = await self.get_uploaded_parts(key, upload_id)
-            LOGGER.warning(parts_response)
+            if PRINT_UPLOADED_PARTS:
+                parts_response = await self.get_uploaded_parts(key, upload_id)
+                LOGGER.info(
+                    json.dumps(
+                        parts_response,
+                        indent=2,
+                        default=lambda _: "<< Not JSON Serializable >>",
+                    )
+                )
 
             LOGGER.debug("Complete with parts: %r", uploaded_parts)
-            try:
-                complete_response = await self.complete_multipart_upload(key, upload_id, uploaded_parts)
-                LOGGER.debug("Complete response: %r", complete_response)
-            except Exception as e:
-                LOGGER.error("Complete exception: %s", e)
+            await self.complete_multipart_upload(key, upload_id, uploaded_parts)
 
             uuid = key.split("/")[-1]
             create_s3_response = await self.create_s3_entry(
                 uuid, filename, file_size, content_type, extension, path, workspace_id
             )
-            LOGGER.debug("Create S3 response: %r", create_s3_response)
             return create_s3_response
 
         except Exception as e:
