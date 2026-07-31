@@ -7,7 +7,7 @@
 
 This is a custom integration that allows HomeAssistant to upload backups to [Drime cloud](https://drime.cloud/) (not affiliated).
 
-This custom component was developed to use the [Drime API](https://docs.drime.cloud/api-reference) to integrate with the cloud providers platform because [Drime does not (yet) support](https://www.reddit.com/r/Drime/comments/1ofgbje/comment/nl90pqj/) the [WebDav](https://www.home-assistant.io/integrations/webdav/) protocol.
+This custom component was developed to use the [Drime API](https://docs.drime.cloud/api-reference) to integrate with the cloud providers platform because [Drime does not (yet) support](https://www.reddit.com/r/Drime/comments/1ofgbje/comment/nl90pqj/) the [WebDav](https://www.home-assistant.io/integrations/webdav/) protocol (it's on the [Roadmap](https://drime.notion.site/roadmap?p=2b254b78f84a81d7879be462d9de7f61&pm=s)).
 
 ## Why?
 
