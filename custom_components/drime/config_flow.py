@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, override
 
 import voluptuous as vol
@@ -18,9 +19,17 @@ from homeassistant.helpers.selector import (
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import DrimeApiClientAuthenticationError, DrimeClient
+from .const import (
+    CONF_EXTRA_PATHS,
+    CONF_USER_ID,
+    DEFAULT_BACKUP_PATH,
+    DOMAIN,
+)
 
 if TYPE_CHECKING:
     from .data import DrimeConfigEntry
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PathNotFoundError(Exception):

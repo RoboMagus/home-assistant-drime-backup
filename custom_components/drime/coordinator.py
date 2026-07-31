@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DrimeApiClientAuthenticationError
-from .const import CONF_EXTRA_PATHS, CONF_USER_ID, LOGGER
+from .const import CONF_EXTRA_PATHS, CONF_USER_ID
 from .data import DrimeConfigEntry, DrimeData
+
+LOGGER = logging.getLogger(__name__)
 
 
 class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):

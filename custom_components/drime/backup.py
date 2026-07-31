@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Coroutine
     from datetime import datetime
 
-_LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 DATA_BACKUP_AGENT_LISTENERS: HassKey[list[Callable[[], None]]] = HassKey(f"{DOMAIN}.backup_agent_listeners")
 
@@ -161,7 +161,7 @@ class DrimeBackupAgent(BackupAgent):
             async for chunk in stream:
                 file_data.extend(chunk)
 
-            _LOGGER.debug(
+            LOGGER.debug(
                 "Uploading backup %s, %r to %r (Simple)",
                 filename_tar,
                 backup,
@@ -172,9 +172,9 @@ class DrimeBackupAgent(BackupAgent):
                 self._backup_folder.name, filename_tar, bytes(file_data), "application/x-tar", backup.size
             )
             elapsed_time = time() - start_time
-            _LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
+            LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
         else:
-            _LOGGER.debug(
+            LOGGER.debug(
                 "Uploading backup %s, %r to %r (Multi)",
                 filename_tar,
                 backup,
@@ -191,9 +191,9 @@ class DrimeBackupAgent(BackupAgent):
                 backup.size,
             )
             elapsed_time = time() - start_time
-            _LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
+            LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
 
-        _LOGGER.debug(
+        LOGGER.debug(
             "Uploading meta %s to %r",
             filename_meta,
             self._backup_folder,
@@ -203,9 +203,9 @@ class DrimeBackupAgent(BackupAgent):
             self._backup_folder.name, filename_meta, json_dumps(backup.as_dict()), "application/json", 0
         )
         elapsed_time = time() - start_time
-        _LOGGER.debug("Uploaded %s in %.2fs", filename_meta, elapsed_time)
+        LOGGER.debug("Uploaded %s in %.2fs", filename_meta, elapsed_time)
 
-        _LOGGER.debug("Uploading backup completed!")
+        LOGGER.debug("Uploading backup completed!")
 
         # Trigger sensor update
         async_call_later(self.hass, 15, self._delayed_refresh_coordinator)
@@ -238,13 +238,13 @@ class DrimeBackupAgent(BackupAgent):
         :param backup_id: The ID of the backup that was returned in async_list_backups.
         :return: An async iterator that yields bytes.
         """
-        _LOGGER.debug("Downloading backup_id: %s", backup_id)
+        LOGGER.debug("Downloading backup_id: %s", backup_id)
         backup = await self._find_backup_by_id(backup_id)
 
         start_time = time()
         response = await self._client.download_file(backup.tar_hash, timeout=10 * 60)
         elapsed_time = time() - start_time
-        _LOGGER.debug("Downloaded backup_id %s: %s in %.2fs", backup_id, backup.name, elapsed_time)
+        LOGGER.debug("Downloaded backup_id %s: %s in %.2fs", backup_id, backup.name, elapsed_time)
         return response.content.iter_chunked(1024)
 
     @override
@@ -259,7 +259,7 @@ class DrimeBackupAgent(BackupAgent):
         :param backup_id: The ID of the backup that was returned in async_list_backups.
         """
         backup = await self._find_backup_by_id(backup_id)
-        _LOGGER.debug(
+        LOGGER.debug(
             "Deleting backup %s (%s): tar=%s, meta=%s", backup.name, backup.backup_id, backup.tar_hash, backup.meta_hash
         )
 
@@ -269,7 +269,7 @@ class DrimeBackupAgent(BackupAgent):
             msg = f"Failed to delete backup: {err}"
             raise BackupAgentError(msg) from err
 
-        _LOGGER.debug("Deleted backup '%s', with hashes (%s, %s)", backup.name, backup.meta_hash, backup.tar_hash)
+        LOGGER.debug("Deleted backup '%s', with hashes (%s, %s)", backup.name, backup.meta_hash, backup.tar_hash)
 
         # Trigger sensor update
         async_call_later(self.hass, 15, self._delayed_refresh_coordinator)
@@ -296,7 +296,7 @@ class DrimeBackupAgent(BackupAgent):
                     }
                 )
             except (*JSON_DECODE_EXCEPTIONS, KeyError, TypeError, ValueError) as err:
-                _LOGGER.warning(
+                LOGGER.warning(
                     "Skipping invalid backup metadata file %s (%s): %s", file_pair.meta.name, file_pair.meta.hash, err
                 )
                 return None
@@ -307,7 +307,7 @@ class DrimeBackupAgent(BackupAgent):
             backup_folder_contents = await self._client.get_file_entries(self._backup_folder.hash)
 
             backup_files = get_backup_file_pairs(backup_folder_contents["data"])
-            _LOGGER.info("backup_files: %r", backup_files)
+            LOGGER.info("backup_files: %r", backup_files)
 
             metadata_contents = await gather_with_limited_concurrency(
                 METADATA_DOWNLOAD_CONCURRENCY,
@@ -320,7 +320,7 @@ class DrimeBackupAgent(BackupAgent):
             }
 
         self._cache_metadata_files = await _list_metadata_files()
-        _LOGGER.info("_cache_metadata_files: %r", self._cache_metadata_files)
+        LOGGER.info("_cache_metadata_files: %r", self._cache_metadata_files)
         self._cache_expiration = time() + CACHE_TTL
         return self._cache_metadata_files
 
@@ -335,5 +335,5 @@ class DrimeBackupAgent(BackupAgent):
 
     async def _delayed_refresh_coordinator(self, _now: datetime) -> None:
         """Delayed call to coordinator refresh after backup operation."""
-        _LOGGER.debug("Refresh coordinator %s", _now)
+        LOGGER.debug("Refresh coordinator %s", _now)
         return await self._coordinator.async_request_refresh()

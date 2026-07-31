@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
-from .const import API_BASE_URL, LOGGER
+from .const import API_BASE_URL
 from .data import DrimeFileInfo
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
     from homeassistant.components.backup import OnProgressCallback
 
+LOGGER = logging.getLogger(__name__)
 PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
 PRINT_UPLOADED_PARTS = False
 

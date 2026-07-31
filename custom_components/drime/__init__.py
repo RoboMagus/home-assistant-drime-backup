@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -12,7 +13,7 @@ from homeassistant.helpers.issue_registry import IssueSeverity, async_create_iss
 
 from .api import DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
-from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
+from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
 from .coordinator import DrimeUpdateCoordinator
 from .data import DrimeRuntimeData
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 
     from .data import DrimeConfigEntry
 
+LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
