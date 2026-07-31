@@ -1,7 +1,7 @@
 # HomeAssistant Drime Backup integration
 
 ![Version](https://img.shields.io/github/v/release/RoboMagus/home-assistant-drime-backup?style=for-the-badge)
-![License](https://img.shields.io/github/license/RoboMagus/home-assistant-drime-backup.svg?style=for-the-badge)
+![License](https://img.shields.io/github/license/RoboMagus/home-assistant-drime-backup?style=for-the-badge)
 
 ## About
 
@@ -27,7 +27,7 @@ Follow [this guide](https://www.hacs.xyz/docs/faq/custom_repositories/) for inst
 
 ### Configuration
 
-After installation the integration must be configured. Do so by clicking the button or following the manual instructions below:
+After installation and restarting HomeAssistant the integration must be configured. Do so by clicking the button or following the manual instructions below:
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=drime)
 
