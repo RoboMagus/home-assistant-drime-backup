@@ -67,10 +67,10 @@ def _get_folder_id(path: str, folders: list[dict[str, Any]]) -> DrimeFileInfo:
                 d_found = True
                 break
         if not d_found:
-            LOGGER.warning(f"Path not found @ {i}: {path}")
+            LOGGER.warning("Path not found @ %d: %s", i, path)
             return DrimeFileInfo(name="/".join(directory_tree[:i]), hash=folder_hash, id=current_folder_id or 0)
 
-    LOGGER.info(f"Found: /{path}")
+    LOGGER.info("Found: /%s", path)
     return DrimeFileInfo(name="/".join(directory_tree), hash=folder_hash, id=current_folder_id or 0)
 
 
@@ -377,12 +377,12 @@ class DrimeClient:
             return await self.create_s3_entry(uuid, filename, file_size, content_type, extension, path, workspace_id)
 
         except Exception as e:
-            LOGGER.error("Multipart upload error! Calling abort.")
+            LOGGER.exception("Multipart upload error! Calling abort.")
             try:
                 abort_response = await self.abort_multipart_upload(key, upload_id)
                 LOGGER.debug("Abort status: %s", abort_response)
-            except Exception as e2:  # noqa: BLE001
-                LOGGER.exception("Exception during abort_multipart_upload: %s", e2)
+            except Exception:
+                LOGGER.exception("Exception during abort_multipart_upload: %s")
             msg = f"Multipart upload failed: {e}"
             raise DrimeUploadError(msg) from e
 

@@ -62,8 +62,8 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             except DrimeApiClientAuthenticationError as exception:
                 LOGGER.warning(exception)
                 _errors["base"] = "invalid_auth"
-            except Exception as exception:  # noqa: BLE001
-                LOGGER.exception(exception)
+            except Exception:
+                LOGGER.exception("Unknown exception in user step")
                 _errors["base"] = "unknown"
             else:
                 await self.async_set_unique_id(unique_id=str(_uid))
@@ -166,8 +166,8 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
             except PathNotFoundError as exception:
                 LOGGER.warning("Drime Options Flow path not found: %s", exception)
                 _errors["base"] = f"Path not found: {exception}"
-            except Exception as exception:  # noqa: BLE001
-                LOGGER.exception(exception)
+            except Exception:
+                LOGGER.exception("Unknown exception in options flow")
                 _errors["base"] = "unknown"
             else:
                 return self.async_create_entry(

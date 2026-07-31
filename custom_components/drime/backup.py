@@ -303,7 +303,7 @@ class DrimeBackupAgent(BackupAgent):
 
         async def _list_metadata_files() -> dict[str, DrimeAgentBackup]:
             """List metadata files."""
-            _LOGGER.debug("Fetching entries for backup folder hash: %s", self._backup_folder.hash)
+            LOGGER.debug("Fetching entries for backup folder hash: %s", self._backup_folder.hash)
             backup_folder_contents = await self._client.get_file_entries(self._backup_folder.hash)
 
             backup_files = get_backup_file_pairs(backup_folder_contents["data"])

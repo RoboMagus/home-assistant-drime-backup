@@ -44,7 +44,7 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
                 folder_sizes,
             )
         except DrimeApiClientAuthenticationError as exception:
-            LOGGER.error("Drime authentication error. Please check API key permissions.")
+            LOGGER.exception("Drime authentication error. Please check API key permissions.")
             raise ConfigEntryAuthFailed from exception
         except Exception as exception:
             raise UpdateFailed from exception
