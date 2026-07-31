@@ -14,7 +14,7 @@ from .api import DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
 from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
 from .coordinator import DrimeUpdateCoordinator
-from .data import DrimeFileInfo, DrimeRuntimeData
+from .data import DrimeRuntimeData
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -56,7 +56,8 @@ async def async_setup_entry(
             translation_key="drime_backup_folder_not_found",
             translation_placeholders={"path": conf_folder_path},
         )
-        raise ConfigEntryError(f"Backup folder '{conf_folder_path}' not found!")
+        msg = f"Backup folder '{conf_folder_path}' not found!"
+        raise ConfigEntryError(msg)
     else:  # noqa: RET506
         async_delete_issue(hass, DOMAIN, f"drime_backup_folder_not_found_{entry.unique_id}")
 

@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import AsyncIterator, Callable, Coroutine
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
-from homeassistant.components.backup import OnProgressCallback
 
 from .const import API_BASE_URL, LOGGER
 from .data import DrimeFileInfo
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Coroutine
+
+    from homeassistant.components.backup import OnProgressCallback
+
+PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
 PRINT_UPLOADED_PARTS = False
 
 
@@ -36,9 +40,7 @@ def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     """Verify that the response is valid."""
     if response.status in (401, 403):
         msg = "Invalid credentials"
-        raise DrimeApiClientAuthenticationError(
-            msg,
-        )
+        raise DrimeApiClientAuthenticationError(msg)
     response.raise_for_status()
 
 
@@ -103,23 +105,16 @@ class DrimeClient:
                 timeout=aiohttp.ClientTimeout(total=15),
             )
             _verify_response_or_raise(response)
-            data = await response.json()
-            return data
+            return await response.json()
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
-            raise DrimeApiClientCommunicationError(
-                msg,
-            ) from exception
+            raise DrimeApiClientCommunicationError(msg) from exception
         except aiohttp.ClientError as exception:
             msg = f"Error fetching information - {exception}"
-            raise DrimeApiClientCommunicationError(
-                msg,
-            ) from exception
+            raise DrimeApiClientCommunicationError(msg) from exception
         except Exception as exception:
             msg = f"Something really wrong happened! - {exception}"
-            raise DrimeApiClientError(
-                msg,
-            ) from exception
+            raise DrimeApiClientError(msg) from exception
 
     async def _stream_wrapper(
         self,
@@ -141,22 +136,17 @@ class DrimeClient:
                 timeout=aiohttp.ClientTimeout(total=timeout or 60),
             )
             _verify_response_or_raise(response)
-            return response
         except TimeoutError as exception:
             msg = f"Timeout error fetching information - {exception}"
-            raise DrimeApiClientCommunicationError(
-                msg,
-            ) from exception
+            raise DrimeApiClientCommunicationError(msg) from exception
         except aiohttp.ClientError as exception:
             msg = f"Error fetching information - {exception}"
-            raise DrimeApiClientCommunicationError(
-                msg,
-            ) from exception
+            raise DrimeApiClientCommunicationError(msg) from exception
         except Exception as exception:
             msg = f"Something really wrong happened! - {exception}"
-            raise DrimeApiClientError(
-                msg,
-            ) from exception
+            raise DrimeApiClientError(msg) from exception
+        else:
+            return response
 
     async def get_user(self) -> Any:
         """https://docs.drime.cloud/api-reference/user/get-logged-user."""
@@ -240,7 +230,7 @@ class DrimeClient:
     #   3. Upload - PUT each part to its URL
     #  4. Complete - Finalize the upload (complete_multipart_upload)
     #  5. Register - Create file entry (create_s3_entry)
-    async def upload_file_multipart(
+    async def upload_file_multipart(  # noqa: PLR0915
         self,
         path: str,
         filename: str,
@@ -250,15 +240,14 @@ class DrimeClient:
         file_size: int,
         workspace_id: int = 0,
     ) -> Any:
-        """Wrapper function to process multi-part uploads."""
+        """Wraping function to process multi-part uploads."""
         # Based on aws_s3 / cloudflare_r2 backup integrations
 
         if not path.endswith("/"):
             path = path + "/"
         path += filename
 
-        PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
-        NUM_PARTS_EXPECTED = math.ceil(file_size / PART_SIZE_BYTES)
+        num_parts = math.ceil(file_size / PART_SIZE_BYTES)
 
         extension = "tar"
         init_response = await self.create_multipart_upload(
@@ -269,7 +258,8 @@ class DrimeClient:
         key = init_response.get("key")
 
         if not upload_id or not key:
-            raise DrimeUploadError("Failed to initialize multipart upload")
+            msg = "Failed to initialize multipart upload"
+            raise DrimeUploadError(msg)
 
         LOGGER.debug("Initialized MultiPart upload: %s", key)
 
@@ -278,7 +268,7 @@ class DrimeClient:
         async def get_signed_url(num: int) -> str:
             """Batch pre-signed urls."""
             if not (signed_url := signed_urls.pop(num, None)):
-                batch_size = min(NUM_PARTS_EXPECTED - num + 1, 12)
+                batch_size = min(num_parts - num + 1, 12)
                 part_numbers = list(range(num, num + batch_size))
                 LOGGER.debug("Signing parts: %r", part_numbers)
                 sign_response = await self.sign_part_urls(key, upload_id, part_numbers)
@@ -286,7 +276,8 @@ class DrimeClient:
 
                 signed_url = signed_urls.pop(num, None)
                 if not signed_url:
-                    raise DrimeUploadError(f"No signed URL for part {num}")
+                    msg = f"No signed URL for part {num}"
+                    raise DrimeUploadError(msg)
             return signed_url
 
         try:
@@ -313,7 +304,7 @@ class DrimeClient:
                         LOGGER.debug(
                             "Uploading part number %d / %d, size %d",
                             part_number,
-                            NUM_PARTS_EXPECTED,
+                            num_parts,
                             len(part_data),
                         )
                         response = await self._session.request(
@@ -349,7 +340,7 @@ class DrimeClient:
                 LOGGER.debug(
                     "Uploading final part number %d / %d, size %d",
                     part_number,
-                    NUM_PARTS_EXPECTED,
+                    num_parts,
                     len(remaining_data),
                 )
                 signed_url = await get_signed_url(part_number)
@@ -381,10 +372,7 @@ class DrimeClient:
             await self.complete_multipart_upload(key, upload_id, uploaded_parts)
 
             uuid = key.split("/")[-1]
-            create_s3_response = await self.create_s3_entry(
-                uuid, filename, file_size, content_type, extension, path, workspace_id
-            )
-            return create_s3_response
+            return await self.create_s3_entry(uuid, filename, file_size, content_type, extension, path, workspace_id)
 
         except Exception as e:
             LOGGER.error("Multipart upload error! Calling abort.")
@@ -393,7 +381,8 @@ class DrimeClient:
                 LOGGER.debug("Abort status: %s", abort_response)
             except Exception as e2:  # noqa: BLE001
                 LOGGER.exception("Exception during abort_multipart_upload: %s", e2)
-            raise DrimeUploadError(f"Multipart upload failed: {e}") from e
+            msg = f"Multipart upload failed: {e}"
+            raise DrimeUploadError(msg) from e
 
     async def create_multipart_upload(
         self, path: str, filename: str, mime: str, size: int, extension: str, workspace_id: int = 0
@@ -457,7 +446,6 @@ class DrimeClient:
                 "clientName": filename,
                 "clientMime": mime,
                 "clientExtension": extension,
-                # "parentId": parent_id,
                 "relativePath": path,
                 "workspaceId": workspace_id,
             },

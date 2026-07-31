@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, override
+from typing import TYPE_CHECKING, Any, override
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -11,7 +11,6 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.selector import (
-    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -19,11 +18,12 @@ from homeassistant.helpers.selector import (
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import DrimeApiClientAuthenticationError, DrimeClient
-from .const import CONF_EXTRA_PATHS, CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN, LOGGER
-from .data import DrimeConfigEntry
+
+if TYPE_CHECKING:
+    from .data import DrimeConfigEntry
 
 
-class PathNotFound(Exception):
+class PathNotFoundError(Exception):
     """Error to indicate path does not exist on Drime."""
 
 
@@ -154,7 +154,7 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
             try:
                 folders_resp = await self._test_folders(folders=user_input[CONF_EXTRA_PATHS])
                 extra_paths = {f"/{f.name}": f.hash for f in folders_resp}
-            except PathNotFound as exception:
+            except PathNotFoundError as exception:
                 LOGGER.warning("Drime Options Flow path not found: %s", exception)
                 _errors["base"] = f"Path not found: {exception}"
             except Exception as exception:  # noqa: BLE001
@@ -196,5 +196,5 @@ class DrimeOptionsFlowHandler(config_entries.OptionsFlow):
                 LOGGER.debug("Hash for extra path %s: %s", folder, fids[i].hash)
             else:
                 LOGGER.debug("Path not found: %s (%s)", folder, fids[i].name)
-                raise PathNotFound(folder)
+                raise PathNotFoundError(folder)
         return fids

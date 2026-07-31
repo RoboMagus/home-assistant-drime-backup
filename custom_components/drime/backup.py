@@ -1,13 +1,9 @@
 """Backup platform for the Google Drive integration."""
 
-import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable, Coroutine
 from dataclasses import asdict, dataclass
-from datetime import datetime
-from functools import wraps
 from time import time
-from typing import Any, Self, override
+from typing import TYPE_CHECKING, Any, Self, override
 
 from homeassistant.components.backup import (
     AgentBackup,
@@ -19,7 +15,6 @@ from homeassistant.components.backup import (
 )
 from homeassistant.const import CONF_PATH
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.json import json_dumps
 from homeassistant.util import slugify
@@ -29,6 +24,10 @@ from homeassistant.util.json import JSON_DECODE_EXCEPTIONS, json_loads_object
 
 from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
 from .data import DrimeConfigEntry, DrimeFileInfo
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Coroutine
+    from datetime import datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ def get_backup_file_pairs(folder_contents: list[dict[str, Any]]) -> list[BackupF
 
 async def async_get_backup_agents(
     hass: HomeAssistant,
-    **kwargs: Any,
+    **_kwargs: Any,
 ) -> list[BackupAgent]:
     """Return a list of backup agents."""
     entries = hass.config_entries.async_loaded_entries(DOMAIN)
@@ -73,7 +72,7 @@ def async_register_backup_agents_listener(
     hass: HomeAssistant,
     *,
     listener: Callable[[], None],
-    **kwargs: Any,
+    **_kwargs: Any,
 ) -> Callable[[], None]:
     """
     Register a listener to be called when agents are added or removed.
@@ -267,7 +266,8 @@ class DrimeBackupAgent(BackupAgent):
         try:
             await self._client.delete_entries([backup.meta_id, backup.tar_id], permanent=True)
         except Exception as err:
-            raise BackupAgentError(f"Failed to delete backup: {err}") from err
+            msg = f"Failed to delete backup: {err}"
+            raise BackupAgentError(msg) from err
 
         _LOGGER.debug("Deleted backup '%s', with hashes (%s, %s)", backup.name, backup.meta_hash, backup.tar_hash)
 
@@ -307,7 +307,7 @@ class DrimeBackupAgent(BackupAgent):
             backup_folder_contents = await self._client.get_file_entries(self._backup_folder.hash)
 
             backup_files = get_backup_file_pairs(backup_folder_contents["data"])
-            _LOGGER.debug(f"backup_files: {backup_files}")
+            _LOGGER.info("backup_files: %r", backup_files)
 
             metadata_contents = await gather_with_limited_concurrency(
                 METADATA_DOWNLOAD_CONCURRENCY,
@@ -320,6 +320,7 @@ class DrimeBackupAgent(BackupAgent):
             }
 
         self._cache_metadata_files = await _list_metadata_files()
+        _LOGGER.info("_cache_metadata_files: %r", self._cache_metadata_files)
         self._cache_expiration = time() + CACHE_TTL
         return self._cache_metadata_files
 
@@ -329,7 +330,8 @@ class DrimeBackupAgent(BackupAgent):
         if backup := backups.get(backup_id):
             return backup
 
-        raise BackupNotFound(f"Backup {backup_id} not found")
+        msg = f"Backup {backup_id} not found"
+        raise BackupNotFound(msg)
 
     async def _delayed_refresh_coordinator(self, _now: datetime) -> None:
         """Delayed call to coordinator refresh after backup operation."""

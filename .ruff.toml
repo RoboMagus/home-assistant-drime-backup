@@ -23,6 +23,9 @@ ignore = [
 [lint.flake8-pytest-style]
 fixture-parentheses = false
 
+[lint.pylint]
+max-args = 8
+
 [lint.pyupgrade]
 keep-runtime-typing = true
 

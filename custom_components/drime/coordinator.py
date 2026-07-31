@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from homeassistant.const import CONF_PATH
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DrimeApiClientAuthenticationError
-from .const import CONF_EXTRA_PATHS, DEFAULT_BACKUP_PATH, CONF_USER_ID, LOGGER
+from .const import CONF_EXTRA_PATHS, CONF_USER_ID, LOGGER
 from .data import DrimeConfigEntry, DrimeData
 
 
