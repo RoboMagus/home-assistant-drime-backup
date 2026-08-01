@@ -13,7 +13,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Write tag version to manifest
         run: |
           jq -j '.version = "${{ github.ref_name }}"' custom_components/drime/manifest.json > manifest.tmp && mv manifest.tmp custom_components/drime/manifest.json
