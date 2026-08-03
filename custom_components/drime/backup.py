@@ -23,11 +23,13 @@ from homeassistant.util.hass_dict import HassKey
 from homeassistant.util.json import JSON_DECODE_EXCEPTIONS, json_loads_object
 
 from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
-from .data import DrimeConfigEntry, DrimeFileInfo
+from .data import ActiveBackupData, DrimeConfigEntry, DrimeFileInfo
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Coroutine
     from datetime import datetime
+
+    from .coordinator import DrimeUpdateCoordinator
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +91,34 @@ def async_register_backup_agents_listener(
             del hass.data[DATA_BACKUP_AGENT_LISTENERS]
 
     return remove_listener
+
+
+class ProgressScope:
+    """Context wrapper to close progress callback."""
+
+    def __init__(
+        self, coordinator: DrimeUpdateCoordinator, on_progress: OnProgressCallback, backup: AgentBackup
+    ) -> None:
+        """Initialize progress scope."""
+        self.coordinator = coordinator
+        self.backup = backup
+        self.on_progress = on_progress
+
+    def __enter__(self) -> OnProgressCallback:
+        """Enter progress scope."""
+        return self.on_upload_progress
+
+    def __exit__(self, _exc_type, _exc_value, _traceback) -> None:  # noqa: ANN001
+        """Exit progress scope."""
+        self.coordinator.update_active_backup(None)
+
+    @callback
+    def on_upload_progress(self, *, bytes_uploaded: int, **_kwargs: Any) -> None:
+        """Handle upload progress."""
+        self.on_progress(bytes_uploaded=bytes_uploaded)
+        self.coordinator.update_active_backup(
+            ActiveBackupData(total_size=self.backup.size, uploaded=bytes_uploaded, name=self.backup.name)
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -181,17 +211,18 @@ class DrimeBackupAgent(BackupAgent):
                 self._backup_folder,
             )
 
-            start_time = time()
-            await self._client.upload_file_multipart(
-                self._backup_folder.name,
-                filename_tar,
-                open_stream,
-                on_progress,
-                "application/x-tar",
-                backup.size,
-            )
-            elapsed_time = time() - start_time
-            LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
+            with ProgressScope(self._coordinator, on_progress, backup) as on_upload_progress:
+                start_time = time()
+                await self._client.upload_file_multipart(
+                    self._backup_folder.name,
+                    filename_tar,
+                    open_stream,
+                    on_upload_progress,
+                    "application/x-tar",
+                    backup.size,
+                )
+                elapsed_time = time() - start_time
+                LOGGER.debug("Uploaded %s in %.2fs", filename_tar, elapsed_time)
 
         LOGGER.debug(
             "Uploading meta %s to %r",

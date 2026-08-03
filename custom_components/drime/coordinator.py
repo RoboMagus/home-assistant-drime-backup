@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import DrimeApiClientAuthenticationError
 from .const import CONF_EXTRA_PATHS, CONF_USER_ID
-from .data import DrimeConfigEntry, DrimeData
+from .data import ActiveBackupData, DrimeConfigEntry, DrimeData
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ LOGGER = logging.getLogger(__name__)
 class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
     """Class to manage fetching data from the API."""
 
+    active_backup: ActiveBackupData | None = None
     config_entry: DrimeConfigEntry
 
     async def _async_update_data(self) -> DrimeData:
@@ -48,3 +49,8 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
             raise ConfigEntryAuthFailed from exception
         except Exception as exception:
             raise UpdateFailed from exception
+
+    def update_active_backup(self, active_backup: ActiveBackupData | None) -> None:
+        """Push active backup data from backup agent."""
+        self.active_backup = active_backup
+        self.async_update_listeners()

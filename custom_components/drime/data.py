@@ -16,6 +16,15 @@ type DrimeConfigEntry = ConfigEntry[DrimeRuntimeData]
 
 
 @dataclass(frozen=True, kw_only=True)
+class ActiveBackupData:
+    """Sensor data for active Backup uploads."""
+
+    total_size: int
+    uploaded: int
+    name: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class DrimeFileInfo:
     """Drime file info class."""
 
