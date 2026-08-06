@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  description: "Access token should be sent along with every request to SITE_NAME API in authorization header: `Authorization: Bearer <Token>` <br> This token can either be acquired via `auth/login` endpoint or from account settings page on [SITE_NAME website](SITE_URL/account/settings)."
-  version: "1.0.0"
-  title: Changed for testing GH Workflow
+  description: 'Access token should be sent along with every request to SITE_NAME API in authorization header: `Authorization: Bearer <Token>` <br> This token can either be acquired via `auth/login` endpoint or from account settings page on [SITE_NAME website](SITE_URL/account/settings).'
+  version: '1.0.0'
+  title: SITE_NAME API
 security:
   - accessToken: []
 tags:
@@ -19,7 +19,7 @@ tags:
   - name: Shareable Links
     description: Manage shareable links for file or folder
   - name: Sign
-    description: "Drime Sign e-signature API. Create envelopes (from a PDF or from a reusable template), send them for signature, track signer progress and download the completed artifacts. <br><br> **Scopes**: API tokens need the `sign.read` scope for GET endpoints and `sign.write` for mutations. <br><br> **Idempotency**: `POST /sign/envelopes/from-template` and `POST /sign/envelopes/{slug}/send` accept an optional `Idempotency-Key` header. Retrying a request with the same key within 24 hours replays the original response (flagged with `X-Idempotent-Replay: true`) instead of creating or sending a duplicate. <br><br> **Embedding**: signing pages can be embedded on your own site with the `<drime-sign-form>` widget — load `/js/sign-embed.js` and point `data-src` at a signing link (`/sign/s/{token}`, e.g. the `signing_url` returned by the API) or at a public template form (`/sign/d/{slug}`, enabled per template with `shared_link: true`). Optional attributes: `data-email`, `data-name`, `data-values` (JSON pre-fill), `data-accent-color`, `data-background-color`, `data-with-decline`, `data-with-download`, `data-completed-redirect-url`, `data-min-height`. The element dispatches `load`, `viewed`, `completed` and `declined` CustomEvents. Embedding is blocked by default: allow your site's domain in Settings > Developers > Embedding (enforced with a CSP `frame-ancestors` header on the signing pages). A live sandbox is available at `/sign/s/demo` — it renders a sample document and never persists anything."
+    description: 'Drime Sign e-signature API. Create envelopes (from a PDF or from a reusable template), send them for signature, track signer progress and download the completed artifacts. <br><br> **Scopes**: API tokens need the `sign.read` scope for GET endpoints and `sign.write` for mutations. <br><br> **Idempotency**: `POST /sign/envelopes/from-template` and `POST /sign/envelopes/{slug}/send` accept an optional `Idempotency-Key` header. Retrying a request with the same key within 24 hours replays the original response (flagged with `X-Idempotent-Replay: true`) instead of creating or sending a duplicate. <br><br> **Embedding**: signing pages can be embedded on your own site with the `<drime-sign-form>` widget — load `/js/sign-embed.js` and point `data-src` at a signing link (`/sign/s/{token}`, e.g. the `signing_url` returned by the API) or at a public template form (`/sign/d/{slug}`, enabled per template with `shared_link: true`). Optional attributes: `data-email`, `data-name`, `data-values` (JSON pre-fill), `data-accent-color`, `data-background-color`, `data-with-decline`, `data-with-download`, `data-completed-redirect-url`, `data-min-height`. The element dispatches `load`, `viewed`, `completed` and `declined` CustomEvents. Embedding is blocked by default: allow your site''s domain in Settings > Developers > Embedding (enforced with a CSP `frame-ancestors` header on the signing pages). A live sandbox is available at `/sign/s/demo` — it renders a sample document and never persists anything.'
   - name: Sign Webhooks
     description: "Receive HTTP callbacks when signature events happen. <br><br> **Events**: `envelope.sent`, `envelope.completed`, `envelope.declined`, `signer.viewed`, `signer.signed`, `signer.declined`, `template.created` (plus `webhook.test` fired by the test endpoint). <br><br> **Delivery**: each event is POSTed as JSON `{event_type, event_uuid, timestamp, data}` with headers `User-Agent: Drime-Webhook/1.0`, `X-Drime-Event` (event type) and `X-Drime-Delivery` (delivery id). `event_uuid` is shared across every endpoint the event fans out to — use it to deduplicate. <br><br> **Signature verification**: every request carries `X-Drime-Signature: sha256=HMAC_SHA256(raw_body, secret)` where `secret` is the `whsec_...` value revealed once at webhook creation. Recompute the HMAC over the exact raw request body and compare (constant-time) before trusting a payload. <br><br> **Retry policy**: deliveries that fail (network error or HTTP status >= 400) are retried with exponential backoff — 2, 4, 8 ... 512 minutes, 10 attempts max (~34h). After that the delivery is marked `failed` and can be replayed manually via the resend endpoint or the UI. <br><br> **URL restrictions**: only public http(s) URLs are accepted — localhost, private and reserved IP ranges are refused at registration and again at send time (anti-SSRF)."
 paths:
@@ -47,7 +47,7 @@ paths:
                   type: string
                   description: "Folders in the path provided here will be auto created, if they don't exist already. This is mainly useful when uploading a folder from browser. It should include original filename as well: <br> `/some/folders/here/file-name.jpg`"
       responses:
-        "201":
+        '201':
           description: File was uploaded
           content:
             application/json:
@@ -58,17 +58,17 @@ paths:
                     type: string
                     example: success
                   fileEntry:
-                    $ref: "#/components/schemas/FileEntry"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
   /drive/file-entries:
     get:
       tags:
@@ -81,46 +81,46 @@ paths:
           in: query
           description: How many entries to return per page
           schema:
-            type: "integer"
-            format: "int64"
+            type: 'integer'
+            format: 'int64'
             default: 50
         - name: deletedOnly
           in: query
           description: Whether only trashed entries should be returned
           schema:
-            type: "boolean"
+            type: 'boolean'
         - name: starredOnly
           in: query
           description: Whether only starred entries should be returned
           schema:
-            type: "boolean"
+            type: 'boolean'
         - name: recentOnly
           in: query
           description: Whether only recent entries should be returned
           schema:
-            type: "boolean"
+            type: 'boolean'
         - name: sharedOnly
           in: query
           description: Whether only entries that have been shared with you should be returned
           schema:
-            type: "boolean"
+            type: 'boolean'
         - name: query
           in: query
           description: Search query entry names should be filtered on
           schema:
-            type: "string"
+            type: 'string'
         - name: type
           in: query
           description: File type entries should be filtered on
           schema:
-            type: "string"
+            type: 'string'
             enum:
-              - "folder"
-              - "image"
-              - "text"
-              - "audio"
-              - "video"
-              - "pdf"
+              - 'folder'
+              - 'image'
+              - 'text'
+              - 'audio'
+              - 'video'
+              - 'pdf'
         - name: parentIds
           in: query
           description: Only entries that are children of specified folders will be returned
@@ -136,18 +136,18 @@ paths:
             type: integer
             default: 0
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/FileEntry"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
+                  $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
   /file-entries:
     delete:
       tags:
@@ -171,7 +171,7 @@ paths:
                   type: string
                   example: false
       responses:
-        "200":
+        '200':
           description: Entries deleted successfully
           content:
             application/json:
@@ -181,16 +181,16 @@ paths:
                   status:
                     type: string
                     example: success
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /file-entries/{entryId}:
     put:
@@ -205,7 +205,7 @@ paths:
           required: true
       operationId: entryUpdate
       responses:
-        "200":
+        '200':
           description: Entry updated
           content:
             application/json:
@@ -216,17 +216,17 @@ paths:
                     type: string
                     example: success
                   fileEntry:
-                    $ref: "#/components/schemas/FileEntry"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
       requestBody:
         content:
           application/json:
@@ -235,10 +235,10 @@ paths:
               properties:
                 name:
                   type: string
-                  example: "New name for the entry"
+                  example: 'New name for the entry'
                 description:
                   type: string
-                  example: "New description for the entry"
+                  example: 'New description for the entry'
 
   /folders:
     post:
@@ -255,13 +255,13 @@ paths:
               properties:
                 name:
                   type: string
-                  example: "new folder name"
+                  example: 'new folder name'
                 parentId:
                   type: integer
-                  description: "ID of parent folder or null if it should be created at root"
+                  description: 'ID of parent folder or null if it should be created at root'
                   example: null
       responses:
-        "200":
+        '200':
           description: Folder created
           content:
             application/json:
@@ -272,17 +272,17 @@ paths:
                     type: string
                     example: success
                   folder:
-                    $ref: "#/components/schemas/FileEntry"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /file-entries/move:
     post:
@@ -291,7 +291,7 @@ paths:
       summary: Movie specified entries to a different folder
       operationId: entriesMove
       responses:
-        "200":
+        '200':
           description: File entries moved successfully
           content:
             application/json:
@@ -304,17 +304,17 @@ paths:
                   entries:
                     type: array
                     items:
-                      $ref: "#/components/schemas/FileEntry"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                      $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
       requestBody:
         content:
           application/json:
@@ -328,10 +328,10 @@ paths:
                   type: array
                   items:
                     type: integer
-                    format: "int32"
+                    format: 'int32'
                 destinationId:
                   type: integer
-                  format: "int32"
+                  format: 'int32'
                   description: ID of folder specified entries should be moved to
                   example: null
   /file-entries/duplicate:
@@ -341,7 +341,7 @@ paths:
       summary: Duplicate specified entries
       operationId: entriesCopy
       responses:
-        "200":
+        '200':
           description: File entries duplicated successfully
           content:
             application/json:
@@ -354,17 +354,17 @@ paths:
                   entries:
                     type: array
                     items:
-                      $ref: "#/components/schemas/FileEntry"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                      $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
       requestBody:
         content:
           application/json:
@@ -378,10 +378,10 @@ paths:
                   type: array
                   items:
                     type: integer
-                    format: "int32"
+                    format: 'int32'
                 destinationId:
                   type: integer
-                  format: "int32"
+                  format: 'int32'
                   description: ID of folder specified entries should be moved to
                   example: null
   /file-entries/restore:
@@ -404,9 +404,9 @@ paths:
                   type: array
                   items:
                     type: integer
-                    format: "int32"
+                    format: 'int32'
       responses:
-        "200":
+        '200':
           description: successful operation
           content:
             application/json:
@@ -416,16 +416,16 @@ paths:
                   status:
                     type: string
                     example: success
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /file-entries/{entryId}/share:
     post:
@@ -460,7 +460,7 @@ paths:
                       - edit
                       - download
       responses:
-        "200":
+        '200':
           description: Shared file entry successfully
           content:
             application/json:
@@ -473,17 +473,17 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
   /file-entries/{entryId}/change-permissions:
     put:
       tags:
@@ -513,7 +513,7 @@ paths:
                       - edit
                       - download
       responses:
-        "200":
+        '200':
           description: Changed permissions successfully
           content:
             application/json:
@@ -526,17 +526,17 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
   /file-entries/{entryId}/unshare:
     delete:
       tags:
@@ -559,7 +559,7 @@ paths:
                 userId:
                   type: integer
       responses:
-        "200":
+        '200':
           description: Unshared file entry successfully
           content:
             application/json:
@@ -572,17 +572,17 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /file-entries/star:
     post:
@@ -601,7 +601,7 @@ paths:
                   items:
                     type: integer
       responses:
-        "200":
+        '200':
           description: Marked as starred successfully
           content:
             application/json:
@@ -612,17 +612,17 @@ paths:
                     type: string
                     example: success
                   tag:
-                    $ref: "#/components/schemas/Tag"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
   /file-entries/unstar:
     post:
       tags:
@@ -640,7 +640,7 @@ paths:
                   items:
                     type: integer
       responses:
-        "200":
+        '200':
           description: Unmarked as starred successfully
           content:
             application/json:
@@ -651,17 +651,17 @@ paths:
                     type: string
                     example: success
                   tag:
-                    $ref: "#/components/schemas/Tag"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /file-entries/{entryId}/shareable-link:
     get:
@@ -679,24 +679,24 @@ paths:
             format: int64
             minimum: 1
       responses:
-        "200":
+        '200':
           description: successful operation
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Shareable-Link-Response"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "404":
+                $ref: '#/components/schemas/Shareable-Link-Response'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '404':
           description: File entry or shareable link not found
-        "422":
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
     post:
       tags:
         - Shareable Links
@@ -719,10 +719,10 @@ paths:
               properties:
                 password:
                   type: string
-                  example: "new password"
+                  example: 'new password'
                 expires_at:
                   type: string
-                  description: "2021-03-06T17:34:00.000000Z"
+                  description: '2021-03-06T17:34:00.000000Z'
                 allow_edit:
                   type: boolean
                   example: false
@@ -730,7 +730,7 @@ paths:
                   type: boolean
                   example: false
       responses:
-        "200":
+        '200':
           description: Shareable link created
           content:
             application/json:
@@ -741,17 +741,17 @@ paths:
                     type: string
                     example: success
                   link:
-                    $ref: "#/components/schemas/ShareableLink"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/ShareableLink'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
   /file_entries/{entryId}/shareable-link:
     put:
       tags:
@@ -774,10 +774,10 @@ paths:
               properties:
                 password:
                   type: string
-                  example: "new password"
+                  example: 'new password'
                 expires_at:
                   type: string
-                  description: "2021-03-06T17:34:00.000000Z"
+                  description: '2021-03-06T17:34:00.000000Z'
                 allow_edit:
                   type: boolean
                   example: false
@@ -785,7 +785,7 @@ paths:
                   type: boolean
                   example: false
       responses:
-        "200":
+        '200':
           description: Shareable link updated
           content:
             application/json:
@@ -796,19 +796,19 @@ paths:
                     type: string
                     example: success
                   link:
-                    $ref: "#/components/schemas/ShareableLink"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "404":
+                    $ref: '#/components/schemas/ShareableLink'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '404':
           description: Shareable link not found
-        "422":
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
     delete:
       tags:
@@ -824,7 +824,7 @@ paths:
             format: int64
             minimum: 1
       responses:
-        "200":
+        '200':
           description: Shareable link deleted
           content:
             application/json:
@@ -834,18 +834,18 @@ paths:
                   status:
                     type: string
                     example: success
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "404":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '404':
           description: Shareable link not found
-        "422":
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /auth/register:
     post:
@@ -855,7 +855,7 @@ paths:
       summary: Register for a new account
       operationId: register
       responses:
-        "200":
+        '200':
           description: User registered
           content:
             application/json:
@@ -866,17 +866,17 @@ paths:
                     type: string
                     example: success
                   user:
-                    $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
       requestBody:
         required: true
         content:
@@ -886,23 +886,23 @@ paths:
               properties:
                 email:
                   type: string
-                  example: "example@gmail.com"
+                  example: 'example@gmail.com'
                 password:
                   type: string
-                  example: "password"
+                  example: 'password'
                 device_name:
                   type: string
-                  example: "iphone 12"
+                  example: 'iphone 12'
   /auth/login:
     post:
       security: []
       tags:
         - Auth
       summary: Get access token
-      description: "Logs in specified user and returns user object along with access token. <br><br> Access Token is a string that enables SITE_NAME to verify that a request belongs to an authorized session. This token should be sent along with every request to SITE_NAME API in a authorization header: `Authorization: Bearer <Token>`."
+      description: 'Logs in specified user and returns user object along with access token. <br><br> Access Token is a string that enables SITE_NAME to verify that a request belongs to an authorized session. This token should be sent along with every request to SITE_NAME API in a authorization header: `Authorization: Bearer <Token>`.'
       operationId: login
       responses:
-        "200":
+        '200':
           description: Operation successful
           content:
             application/json:
@@ -913,17 +913,17 @@ paths:
                     type: string
                     example: success
                   user:
-                    $ref: "#/components/schemas/User"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
       requestBody:
         required: true
         content:
@@ -933,13 +933,13 @@ paths:
               properties:
                 email:
                   type: string
-                  example: "example@gmail.com"
+                  example: 'example@gmail.com'
                 password:
                   type: string
-                  example: "password"
+                  example: 'password'
                 device_name:
                   type: string
-                  example: "iphone 12"
+                  example: 'iphone 12'
 
   /sign/envelopes:
     get:
@@ -962,7 +962,7 @@ paths:
             type: string
         - name: metadata
           in: query
-          description: "Filter on metadata keys set at creation, e.g. `metadata[order_id]=123`. Repeatable; all pairs must match."
+          description: 'Filter on metadata keys set at creation, e.g. `metadata[order_id]=123`. Repeatable; all pairs must match.'
           style: deepObject
           explode: true
           schema:
@@ -986,7 +986,7 @@ paths:
             type: integer
             default: 0
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
@@ -1008,16 +1008,16 @@ paths:
                       data:
                         type: array
                         items:
-                          $ref: "#/components/schemas/SignEnvelope"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
+                          $ref: '#/components/schemas/SignEnvelope'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
     post:
       tags:
         - Sign
       summary: Create an envelope (draft)
-      description: "Create a draft envelope from a document. The document can be provided three ways: a multipart `pdf` file, an inline `pdf_base64` string, or a publicly reachable `pdf_url` fetched server-side. Images (png, jpg, gif, webp) are converted to PDF automatically. Max 50MB. Requires the `sign.write` scope."
+      description: 'Create a draft envelope from a document. The document can be provided three ways: a multipart `pdf` file, an inline `pdf_base64` string, or a publicly reachable `pdf_url` fetched server-side. Images (png, jpg, gif, webp) are converted to PDF automatically. Max 50MB. Requires the `sign.write` scope.'
       operationId: signCreateEnvelope
       requestBody:
         required: true
@@ -1030,14 +1030,14 @@ paths:
               properties:
                 name:
                   type: string
-                  example: "NDA - Acme Corp"
+                  example: 'NDA - Acme Corp'
                 pdf_base64:
                   type: string
                   description: Base64-encoded document (data-URL prefix tolerated). Mutually exclusive with `pdf_url`.
                 pdf_url:
                   type: string
                   description: Public http(s) URL of the document, downloaded server-side (private/local addresses are refused).
-                  example: "https://example.com/contract.pdf"
+                  example: 'https://example.com/contract.pdf'
                 metadata:
                   type: object
                   description: Free-form correlation data (max 8KB JSON), echoed in responses and webhook payloads.
@@ -1055,7 +1055,7 @@ paths:
                   format: binary
                   description: PDF or image file (max 50MB)
       responses:
-        "200":
+        '200':
           description: Envelope created
           content:
             application/json:
@@ -1066,24 +1066,24 @@ paths:
                     type: string
                     example: success
                   envelope:
-                    $ref: "#/components/schemas/SignEnvelope"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "422":
+                    $ref: '#/components/schemas/SignEnvelope'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /sign/envelopes/from-template:
     post:
       tags:
         - Sign
       summary: Create an envelope from a template (optionally send it)
-      description: "Instantiate a reusable template: map each template role (`uuid`) to a real person, optionally pre-fill field values, and optionally send in the same call with `send: true` (the monthly send quota is checked before anything is created). Requires the `sign.write` scope."
+      description: 'Instantiate a reusable template: map each template role (`uuid`) to a real person, optionally pre-fill field values, and optionally send in the same call with `send: true` (the monthly send quota is checked before anything is created). Requires the `sign.write` scope.'
       operationId: signCreateFromTemplate
       parameters:
         - name: Idempotency-Key
@@ -1104,7 +1104,7 @@ paths:
               properties:
                 template_slug:
                   type: string
-                  example: "aBcDeF12"
+                  example: 'aBcDeF12'
                 submitters:
                   type: array
                   items:
@@ -1116,10 +1116,10 @@ paths:
                         description: Role uuid from the template's `submitters` definition
                       name:
                         type: string
-                        example: "Jane Doe"
+                        example: 'Jane Doe'
                       email:
                         type: string
-                        example: "jane@example.com"
+                        example: 'jane@example.com'
                       values:
                         type: object
                         description: 'Pre-filled field values keyed by field label, e.g. {"First name": "Jane"}. Signature-like fields cannot be pre-filled.'
@@ -1136,13 +1136,13 @@ paths:
                   description: Message included in the invitation email
                 expires_at:
                   type: string
-                  description: "ISO date in the future, e.g. 2026-08-01T00:00:00Z"
+                  description: 'ISO date in the future, e.g. 2026-08-01T00:00:00Z'
                 metadata:
                   type: object
                   description: Free-form correlation data (max 8KB JSON), echoed in responses and webhook payloads.
                   additionalProperties: true
       responses:
-        "200":
+        '200':
           description: Envelope created (and sent if `send` was true). Each signer includes its `signing_url`.
           content:
             application/json:
@@ -1153,17 +1153,17 @@ paths:
                     type: string
                     example: success
                   envelope:
-                    $ref: "#/components/schemas/SignEnvelope"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
+                    $ref: '#/components/schemas/SignEnvelope'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
           description: Monthly signature-request quota reached (code `sign_quota_exceeded`)
-        "422":
+        '422':
           description: Invalid data specified
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /sign/envelopes/{slug}:
     get:
@@ -1179,7 +1179,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
@@ -1190,12 +1190,12 @@ paths:
                     type: string
                     example: success
                   envelope:
-                    $ref: "#/components/schemas/SignEnvelope"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "404":
+                    $ref: '#/components/schemas/SignEnvelope'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '404':
           description: Envelope not found
 
   /sign/envelopes/{slug}/send:
@@ -1233,7 +1233,7 @@ paths:
                   type: string
                   enum: [1_day, 2_days, 3_days, 7_days]
       responses:
-        "200":
+        '200':
           description: Envelope sent. Each signer includes its `signing_url`.
           content:
             application/json:
@@ -1244,12 +1244,12 @@ paths:
                     type: string
                     example: success
                   envelope:
-                    $ref: "#/components/schemas/SignEnvelope"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
+                    $ref: '#/components/schemas/SignEnvelope'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
           description: Monthly signature-request quota reached (code `sign_quota_exceeded`)
-        "422":
+        '422':
           description: Envelope has no signers or no fields
 
   /sign/envelopes/{slug}/download:
@@ -1266,16 +1266,16 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: PDF binary
           content:
             application/pdf:
               schema:
                 type: string
                 format: binary
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "404":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '404':
           description: Envelope or PDF not found
 
   /sign/envelopes/{slug}/download/audit:
@@ -1292,16 +1292,16 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: PDF binary
           content:
             application/pdf:
               schema:
                 type: string
                 format: binary
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "404":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '404':
           description: Envelope not found
 
   /sign/templates:
@@ -1327,7 +1327,7 @@ paths:
             type: integer
             default: 0
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
@@ -1343,16 +1343,16 @@ paths:
                       data:
                         type: array
                         items:
-                          $ref: "#/components/schemas/SignTemplate"
-        "401":
-          $ref: "#/components/schemas/401-Response"
+                          $ref: '#/components/schemas/SignTemplate'
+        '401':
+          $ref: '#/components/schemas/401-Response'
 
   /sign/public-templates/{slug}:
     get:
       tags:
         - Sign
       summary: Get a public template form (no auth)
-      description: "Public metadata of a template whose owner enabled `shared_link`. Used by the `/sign/d/{slug}` form page and the `<drime-sign-form>` widget. Returns 404 when the template does not exist or sharing is disabled. No authentication required; throttled per IP."
+      description: 'Public metadata of a template whose owner enabled `shared_link`. Used by the `/sign/d/{slug}` form page and the `<drime-sign-form>` widget. Returns 404 when the template does not exist or sharing is disabled. No authentication required; throttled per IP.'
       operationId: signShowPublicTemplate
       security: []
       parameters:
@@ -1362,7 +1362,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
@@ -1390,7 +1390,7 @@ paths:
                         type: string
                         nullable: true
                         example: Jane Smith
-        "404":
+        '404':
           description: Template not found or not shared
 
   /sign/public-templates/{slug}/start:
@@ -1398,7 +1398,7 @@ paths:
       tags:
         - Sign
       summary: Start signing a public template (no auth)
-      description: "Creates (or resumes) the visitor's own copy of a shared template and returns the signing token — open `/sign/s/{token}` or feed it to the embed widget. Idempotent per email: while a pending copy exists for this email, the same token is returned instead of creating a duplicate. The template owner's monthly request quota is enforced before creation, and an `envelope.sent` webhook fires for every new copy. No authentication required; throttled per IP (10/min)."
+      description: 'Creates (or resumes) the visitor''s own copy of a shared template and returns the signing token — open `/sign/s/{token}` or feed it to the embed widget. Idempotent per email: while a pending copy exists for this email, the same token is returned instead of creating a duplicate. The template owner''s monthly request quota is enforced before creation, and an `envelope.sent` webhook fires for every new copy. No authentication required; throttled per IP (10/min).'
       operationId: signStartPublicTemplate
       security: []
       parameters:
@@ -1429,11 +1429,11 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                  description: "Optional pre-fill: `{field label: value}`. Signature-like fields are never pre-fillable."
+                  description: 'Optional pre-fill: `{field label: value}`. Signature-like fields are never pre-fillable.'
                   example:
                     Company: ACME Inc.
       responses:
-        "200":
+        '200':
           description: Signing session ready
           content:
             application/json:
@@ -1451,11 +1451,11 @@ paths:
                     type: boolean
                     description: True when an existing pending copy was returned instead of creating a new one.
                     example: false
-        "404":
+        '404':
           description: Template not found or not shared
-        "422":
+        '422':
           description: Validation error, multi-signer template, or the owner's quota is exhausted
-        "429":
+        '429':
           description: Too many attempts from this IP
 
   /sign/webhooks:
@@ -1472,7 +1472,7 @@ paths:
             type: integer
             default: 0
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
@@ -1485,28 +1485,19 @@ paths:
                   webhooks:
                     type: array
                     items:
-                      $ref: "#/components/schemas/SignWebhook"
+                      $ref: '#/components/schemas/SignWebhook'
                   available_events:
                     type: array
                     items:
                       type: string
-                    example:
-                      [
-                        envelope.sent,
-                        envelope.completed,
-                        envelope.declined,
-                        signer.viewed,
-                        signer.signed,
-                        signer.declined,
-                        template.created,
-                      ]
-        "401":
-          $ref: "#/components/schemas/401-Response"
+                    example: [envelope.sent, envelope.completed, envelope.declined, signer.viewed, signer.signed, signer.declined, template.created]
+        '401':
+          $ref: '#/components/schemas/401-Response'
     post:
       tags:
         - Sign Webhooks
       summary: Register a webhook
-      description: "Register an endpoint for the selected events. The response contains the signing `secret` (`whsec_...`) **exactly once** — store it now, it cannot be retrieved later (only rotated). URLs pointing to localhost or private IP ranges are refused."
+      description: 'Register an endpoint for the selected events. The response contains the signing `secret` (`whsec_...`) **exactly once** — store it now, it cannot be retrieved later (only rotated). URLs pointing to localhost or private IP ranges are refused.'
       operationId: signCreateWebhook
       requestBody:
         required: true
@@ -1518,21 +1509,12 @@ paths:
               properties:
                 url:
                   type: string
-                  example: "https://example.com/hooks/drime-sign"
+                  example: 'https://example.com/hooks/drime-sign'
                 events:
                   type: array
                   items:
                     type: string
-                    enum:
-                      [
-                        envelope.sent,
-                        envelope.completed,
-                        envelope.declined,
-                        signer.viewed,
-                        signer.signed,
-                        signer.declined,
-                        template.created,
-                      ]
+                    enum: [envelope.sent, envelope.completed, envelope.declined, signer.viewed, signer.signed, signer.declined, template.created]
                 custom_headers:
                   type: object
                   description: 'Up to 10 extra headers sent with every delivery, e.g. {"Authorization": "Bearer xyz"}. Protocol headers (Content-Type, X-Drime-*...) cannot be overridden.'
@@ -1546,7 +1528,7 @@ paths:
                   description: Register at workspace level (every workspace envelope fires it)
                   default: 0
       responses:
-        "200":
+        '200':
           description: Webhook created
           content:
             application/json:
@@ -1557,26 +1539,26 @@ paths:
                     type: string
                     example: success
                   webhook:
-                    $ref: "#/components/schemas/SignWebhook"
+                    $ref: '#/components/schemas/SignWebhook'
                   secret:
                     type: string
                     description: Plaintext HMAC secret — revealed only in this response
-                    example: "whsec_Zx8mPq2rT5vW9yB3dF6hJ1kL4nQ7sU0aC8eG2iK5"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "422":
+                    example: 'whsec_Zx8mPq2rT5vW9yB3dF6hJ1kL4nQ7sU0aC8eG2iK5'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '422':
           description: Invalid data (bad URL, unknown event, private address...)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/422-Response"
+                $ref: '#/components/schemas/422-Response'
 
   /sign/webhooks/{id}:
     put:
       tags:
         - Sign Webhooks
       summary: Update a webhook
-      description: "Update URL, events, custom headers or active flag. Pass `rotate_secret: true` to generate a new secret (returned once in the response, old secret stops working immediately)."
+      description: 'Update URL, events, custom headers or active flag. Pass `rotate_secret: true` to generate a new secret (returned once in the response, old secret stops working immediately).'
       operationId: signUpdateWebhook
       parameters:
         - name: id
@@ -1605,7 +1587,7 @@ paths:
                 rotate_secret:
                   type: boolean
       responses:
-        "200":
+        '200':
           description: Webhook updated (includes `secret` when rotated)
           content:
             application/json:
@@ -1616,15 +1598,15 @@ paths:
                     type: string
                     example: success
                   webhook:
-                    $ref: "#/components/schemas/SignWebhook"
+                    $ref: '#/components/schemas/SignWebhook'
                   secret:
                     type: string
                     description: Only present when rotate_secret was true
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "404":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '404':
           description: Webhook not found
     delete:
       tags:
@@ -1639,13 +1621,13 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
+        '200':
           description: Webhook deleted
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "403":
-          $ref: "#/components/schemas/403-Response"
-        "404":
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '403':
+          $ref: '#/components/schemas/403-Response'
+        '404':
           description: Webhook not found
 
   /sign/webhooks/{id}/test:
@@ -1662,7 +1644,7 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
+        '200':
           description: Test delivery queued
           content:
             application/json:
@@ -1673,10 +1655,10 @@ paths:
                     type: string
                     example: success
                   delivery:
-                    $ref: "#/components/schemas/SignWebhookDelivery"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "404":
+                    $ref: '#/components/schemas/SignWebhookDelivery'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '404':
           description: Webhook not found
 
   /sign/webhooks/{id}/deliveries:
@@ -1699,7 +1681,7 @@ paths:
             default: 20
             maximum: 50
       responses:
-        "200":
+        '200':
           description: Successful operation
           content:
             application/json:
@@ -1715,10 +1697,10 @@ paths:
                       data:
                         type: array
                         items:
-                          $ref: "#/components/schemas/SignWebhookDelivery"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "404":
+                          $ref: '#/components/schemas/SignWebhookDelivery'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '404':
           description: Webhook not found
 
   /sign/webhooks/deliveries/{deliveryId}/resend:
@@ -1735,7 +1717,7 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
+        '200':
           description: Delivery requeued
           content:
             application/json:
@@ -1746,10 +1728,10 @@ paths:
                     type: string
                     example: success
                   delivery:
-                    $ref: "#/components/schemas/SignWebhookDelivery"
-        "401":
-          $ref: "#/components/schemas/401-Response"
-        "404":
+                    $ref: '#/components/schemas/SignWebhookDelivery'
+        '401':
+          $ref: '#/components/schemas/401-Response'
+        '404':
           description: Delivery not found
 components:
   schemas:
@@ -1777,7 +1759,7 @@ components:
           example: 1
           description: Parent folder ID
         parent:
-          $ref: "#/components/schemas/FileEntry"
+          $ref: '#/components/schemas/FileEntry'
         thumbnail:
           type: string
           example: thumbnail.png
@@ -1795,30 +1777,30 @@ components:
         type:
           type: string
           enum:
-            - "image"
-            - "folder"
-            - "text"
-            - "audio"
-            - "video"
-            - "pdf"
+            - 'image'
+            - 'folder'
+            - 'text'
+            - 'audio'
+            - 'video'
+            - 'pdf'
         description:
           type: string
           example: Example description entered by user
         deleted_at:
           type: string
-          example: "2021-02-23T14:42:38.000000Z"
+          example: '2021-02-23T14:42:38.000000Z'
           description: date entry was moved to trash (if it's in trash currently)
         created_at:
           type: string
-          example: "2021-02-23T14:42:38.000000Z"
+          example: '2021-02-23T14:42:38.000000Z'
           description: date entry was uploaded
         updated_at:
           type: string
-          example: "2021-02-23T14:42:38.000000Z"
+          example: '2021-02-23T14:42:38.000000Z'
           description: date entry was last modified (content, name or location changed)
         path:
           type: string
-          example: "3260/3261/3262"
+          example: '3260/3261/3262'
           description: full path of parent folder IDs for this entry up to root
         users:
           type: array
@@ -1830,7 +1812,7 @@ components:
                 format: int64
               email:
                 type: string
-                example: "example@gmail.com"
+                example: 'example@gmail.com'
     User:
       type: object
       properties:
@@ -1850,10 +1832,10 @@ components:
           type: string
         created_at:
           type: string
-          example: "2021-02-23T14:42:38.000000Z"
+          example: '2021-02-23T14:42:38.000000Z'
         updated_at:
           type: string
-          example: "2021-02-23T14:42:38.000000Z"
+          example: '2021-02-23T14:42:38.000000Z'
     Tag:
       type: object
       properties:
@@ -1887,10 +1869,10 @@ components:
           format: int64
           description: ID of file entry this link is attached to
         entry:
-          $ref: "#/components/schemas/FileEntry"
+          $ref: '#/components/schemas/FileEntry'
         expires_at:
           type: string
-          example: "2021-03-06T17:34:00.000000Z"
+          example: '2021-03-06T17:34:00.000000Z'
         allow_edit:
           type: boolean
           example: false
@@ -1904,12 +1886,12 @@ components:
           type: string
           example: success
         link:
-          $ref: "#/components/schemas/ShareableLink"
+          $ref: '#/components/schemas/ShareableLink'
         folderChildren:
           description: If link is for folder, this will list immediate children of that folder
           type: array
           items:
-            $ref: "#/components/schemas/FileEntry"
+            $ref: '#/components/schemas/FileEntry'
         errors:
           type: object
           properties:
@@ -1927,11 +1909,11 @@ components:
           format: int64
         slug:
           type: string
-          example: "aB3dE5fG"
+          example: 'aB3dE5fG'
           description: Public identifier used in every envelope endpoint
         name:
           type: string
-          example: "NDA - Acme Corp"
+          example: 'NDA - Acme Corp'
         status:
           type: string
           enum: [draft, pending, completed, declined, expired]
@@ -1949,7 +1931,7 @@ components:
           type: string
         sent_at:
           type: string
-          example: "2026-07-21T14:00:00.000000Z"
+          example: '2026-07-21T14:00:00.000000Z'
         expires_at:
           type: string
         completed_at:
@@ -1965,7 +1947,7 @@ components:
         signers:
           type: array
           items:
-            $ref: "#/components/schemas/SignSigner"
+            $ref: '#/components/schemas/SignSigner'
     SignSigner:
       type: object
       properties:
@@ -1974,10 +1956,10 @@ components:
           format: int64
         name:
           type: string
-          example: "Jane Doe"
+          example: 'Jane Doe'
         email:
           type: string
-          example: "jane@example.com"
+          example: 'jane@example.com'
         status:
           type: string
           enum: [pending, sent, viewed, signed, declined]
@@ -1987,7 +1969,7 @@ components:
         signing_url:
           type: string
           description: Public link where this signer signs (same URL as the invitation email) — DocuSeal `embed_src` equivalent
-          example: "https://drime.cloud/sign/s/hyN3..."
+          example: 'https://drime.cloud/sign/s/hyN3...'
         viewed_at:
           type: string
         signed_at:
@@ -2017,7 +1999,7 @@ components:
                 type: string
               name:
                 type: string
-                example: "Client"
+                example: 'Client'
         created_at:
           type: string
     SignWebhook:
@@ -2028,7 +2010,7 @@ components:
           format: int64
         url:
           type: string
-          example: "https://example.com/hooks/drime-sign"
+          example: 'https://example.com/hooks/drime-sign'
         events:
           type: array
           items:
@@ -2058,11 +2040,11 @@ components:
           type: integer
         event_type:
           type: string
-          example: "envelope.completed"
+          example: 'envelope.completed'
         event_uuid:
           type: string
           description: Shared by every endpoint the event fanned out to; echoed in the payload for deduplication
-          example: "2f4c1f0e-6a3b-4b1c-9a76-1c2d3e4f5a6b"
+          example: '2f4c1f0e-6a3b-4b1c-9a76-1c2d3e4f5a6b'
         status:
           type: string
           enum: [pending, success, failed]
@@ -2079,20 +2061,20 @@ components:
           type: string
     SignWebhookEventPayload:
       type: object
-      description: "Body POSTed to your endpoint. Verify X-Drime-Signature (sha256=HMAC_SHA256(raw_body, secret)) before trusting it."
+      description: 'Body POSTed to your endpoint. Verify X-Drime-Signature (sha256=HMAC_SHA256(raw_body, secret)) before trusting it.'
       properties:
         event_type:
           type: string
-          example: "envelope.completed"
+          example: 'envelope.completed'
         event_uuid:
           type: string
-          example: "2f4c1f0e-6a3b-4b1c-9a76-1c2d3e4f5a6b"
+          example: '2f4c1f0e-6a3b-4b1c-9a76-1c2d3e4f5a6b'
         timestamp:
           type: string
-          example: "2026-07-21T14:00:00.000000Z"
+          example: '2026-07-21T14:00:00.000000Z'
         data:
           type: object
-          description: "Serialized envelope (see SignEnvelope: status, metadata, signers with signing_url; download_url + audit_trail_url once completed). For signer.* events an extra `signer` key holds the signer concerned. For template.created it is the serialized template."
+          description: 'Serialized envelope (see SignEnvelope: status, metadata, signers with signing_url; download_url + audit_trail_url once completed). For signer.* events an extra `signer` key holds the signer concerned. For template.created it is the serialized template.'
     401-Response:
       description: Unauthenticated. Either access token is not provided or is invalid.
     403-Response:
@@ -2105,7 +2087,7 @@ components:
           example: error
         message:
           type: string
-          example: "Reason for the error"
+          example: 'Reason for the error'
         errors:
           type: object
           properties:
