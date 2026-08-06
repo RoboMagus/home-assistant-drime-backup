@@ -93,8 +93,8 @@ async def async_setup_entry(
             coordinator=entry.runtime_data.coordinator,
             entity_description=SensorEntityDescription(
                 key="active",
-                name="Active backup",
-                icon="mdi:database",
+                name="Active backup upload",
+                icon="mdi:upload-box",
                 device_class=SensorDeviceClass.DATA_SIZE,
                 native_unit_of_measurement=UnitOfInformation.BYTES,
                 suggested_display_precision=2,
@@ -178,6 +178,7 @@ class ActiveBackupSensor(DrimeEntity, SensorEntity):
         return {
             "Backup name": backup.name,
             "Total size": self.convert_size(backup.total_size),
+            "Start time": backup.upload_start_time,
         }
 
     def convert_size(self, size: int) -> int | float:

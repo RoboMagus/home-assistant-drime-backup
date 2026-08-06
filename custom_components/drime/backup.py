@@ -17,6 +17,7 @@ from homeassistant.const import CONF_PATH
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.json import json_dumps
+from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 from homeassistant.util.async_ import gather_with_limited_concurrency
 from homeassistant.util.hass_dict import HassKey
@@ -103,6 +104,7 @@ class ProgressScope:
         self.coordinator = coordinator
         self.backup = backup
         self.on_progress = on_progress
+        self.start_time = dt_util.now()
 
     def __enter__(self) -> OnProgressCallback:
         """Enter progress scope."""
@@ -117,7 +119,12 @@ class ProgressScope:
         """Handle upload progress."""
         self.on_progress(bytes_uploaded=bytes_uploaded)
         self.coordinator.update_active_backup(
-            ActiveBackupData(total_size=self.backup.size, uploaded=bytes_uploaded, name=self.backup.name)
+            ActiveBackupData(
+                total_size=self.backup.size,
+                uploaded=bytes_uploaded,
+                name=self.backup.name,
+                upload_start_time=self.start_time,
+            )
         )
 
 

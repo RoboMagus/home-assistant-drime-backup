@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from homeassistant.config_entries import ConfigEntry
 
     from .api import DrimeClient
@@ -22,6 +24,7 @@ class ActiveBackupData:
     total_size: int
     uploaded: int
     name: str
+    upload_start_time: datetime
 
 
 @dataclass(frozen=True, kw_only=True)
