@@ -6,30 +6,43 @@ import logging
 from typing import TYPE_CHECKING, Any, override
 
 import voluptuous as vol
+from aiohttp import ClientProxyConnectionError
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_PATH
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import DrimeApiClientAuthenticationError, DrimeClient
 from .const import (
     CONF_EXTRA_PATHS,
+    CONF_PROXY_URL,
     CONF_USER_ID,
     DEFAULT_BACKUP_PATH,
     DOMAIN,
+    SECTION_ADVANCED_SETTINGS,
 )
 
 if TYPE_CHECKING:
+    from aiohttp import ClientSession
+
     from .data import DrimeConfigEntry
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ProxyError(Exception):
+    """Error to indicate invalid proxy URL."""
 
 
 class PathNotFoundError(Exception):
@@ -50,15 +63,24 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         _errors = {}
         if user_input is not None:
             try:
-                api_resp = await self._test_credentials(
+                proxy_url = user_input[SECTION_ADVANCED_SETTINGS][CONF_PROXY_URL] or None
+                session = async_create_clientsession(self.hass, proxy=proxy_url)
+                if proxy_url:
+                    await self._test_proxy(session)
+
+                client = DrimeClient(
                     api_key=user_input[CONF_API_KEY],
-                )
-                _uid = api_resp.get("user", {}).get("id")
-                _subscription = (
-                    api_resp.get("user", {}).get("subscriptions", [{}])[0].get("product", {}).get("name", None)
+                    session=session,
                 )
 
-                await self._create_folder_if_not_exists(user_input[CONF_PATH], user_input[CONF_API_KEY], _uid)
+                user = await self._test_credentials(client)
+                _uid = user.get("id")
+                _subscription = user.get("subscriptions", [{}])[0].get("product", {}).get("name", None)
+
+                await self._create_folder_if_not_exists(client, user_input[CONF_PATH], _uid)
+            except (ClientProxyConnectionError, ProxyError) as exception:
+                LOGGER.warning(exception)
+                _errors["base"] = "proxy_error"
             except DrimeApiClientAuthenticationError as exception:
                 LOGGER.warning(exception)
                 _errors["base"] = "invalid_auth"
@@ -101,6 +123,16 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             type=selector.TextSelectorType.TEXT,
                         ),
                     ),
+                    vol.Required(SECTION_ADVANCED_SETTINGS): section(
+                        vol.Schema(
+                            {
+                                vol.Optional(
+                                    CONF_PROXY_URL, default=(user_input or {}).get(CONF_PROXY_URL, "")
+                                ): TextSelector(config=TextSelectorConfig(type=TextSelectorType.URL)),
+                            },
+                        ),
+                        {"collapsed": True},
+                    ),
                 },
             ),
             errors=_errors,
@@ -119,22 +151,27 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Get the options flow for this handler."""
         return DrimeOptionsFlowHandler()
 
-    async def _test_credentials(self, api_key: str) -> dict[str, Any]:
+    async def _test_proxy(self, session: ClientSession) -> None:
+        """Validate proxy."""
+        try:
+            response = await session.get("https://api.ipify.org?format=json")
+            ip_addr = (await response.json()).get("ip")
+            LOGGER.info("Proxy test success. External IP: %s", ip_addr)
+        except Exception as e:
+            LOGGER.exception("Test Proxy error!")
+            raise ProxyError from e
+
+    async def _test_credentials(self, client: DrimeClient) -> dict[str, Any]:
         """Validate credentials."""
-        client = DrimeClient(
-            api_key=api_key,
-            session=async_create_clientsession(self.hass),
-        )
         user = await client.get_user()
         LOGGER.debug(user)
-        return user
+        if user_data := user.get("user"):
+            return user_data
+        msg = "Invalid credentials"
+        raise DrimeApiClientAuthenticationError(msg)
 
-    async def _create_folder_if_not_exists(self, path: str, api_key: str, user_id: int) -> None:
+    async def _create_folder_if_not_exists(self, client: DrimeClient, path: str, user_id: int) -> None:
         """Create root folder if it doesn't exist."""
-        client = DrimeClient(
-            api_key=api_key,
-            session=async_create_clientsession(self.hass),
-        )
         path = path.strip(" /")
         folder_info = await client.get_folder_id(path, user_id)
         if folder_info.name == path:

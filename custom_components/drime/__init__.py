@@ -13,7 +13,7 @@ from homeassistant.helpers.issue_registry import IssueSeverity, async_create_iss
 
 from .api import DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
-from .const import CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
+from .const import CONF_PROXY_URL, CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
 from .coordinator import DrimeUpdateCoordinator
 from .data import DrimeRuntimeData
 
@@ -39,9 +39,16 @@ async def async_setup_entry(
         update_interval=timedelta(hours=1),
     )
 
+    session_args = {}
+    if proxy_url := entry.data.get(CONF_PROXY_URL):
+        # https://docs.aiohttp.org/en/stable/client_advanced.html#proxy-support
+        # "Authentication credentials can be passed in proxy URL"
+        session_args["proxy"] = proxy_url
+        LOGGER.debug("Configuring proxy: %s", proxy_url)
+
     client = DrimeClient(
         api_key=entry.data[CONF_API_KEY],
-        session=async_get_clientsession(hass),
+        session=async_get_clientsession(hass, **session_args),
     )
 
     backup_folder_info = await client.get_folder_id(

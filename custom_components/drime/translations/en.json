@@ -5,6 +5,7 @@
     },
     "error": {
       "invalid_auth": "Invalid authentication",
+      "proxy_error": "Error connecting using Proxy",
       "unknown": "Unexpected error"
     },
     "step": {
@@ -16,6 +17,18 @@
         "data_description": {
           "api_key": "Settings > Developers > Create Token",
           "path": "Full path of directory where HomeAssistant backups will be stored."
+        },
+        "description": "Configure HA Backup on Drime cloud",
+        "sections": {
+          "advanced_settings": {
+            "data": {
+              "proxy_url": "Proxy URL"
+            },
+            "data_description": {
+              "proxy_url": "E.g. http://username:password@127.0.0.1:1080 In case Drime API should be accessed over a proxy."
+            },
+            "name": "Advanced Settings"
+          }
         }
       }
     }
