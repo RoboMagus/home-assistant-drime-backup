@@ -8,6 +8,13 @@ import math
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from .const import API_BASE_URL
 from .data import DrimeFileInfo
@@ -20,6 +27,22 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
 PRINT_UPLOADED_PARTS = False
+
+api_retry = retry(
+    retry=retry_if_exception_type((TimeoutError, aiohttp.ClientConnectorError)),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=3, jitter=2, max=60),
+    before_sleep=before_sleep_log(LOGGER, logging.WARNING),
+    reraise=True,
+)
+
+s3_retry = retry(
+    retry=retry_if_exception_type((TimeoutError, aiohttp.ClientConnectorError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(initial=2, jitter=2, max=30),
+    before_sleep=before_sleep_log(LOGGER, logging.WARNING),
+    reraise=True,
+)
 
 
 class DrimeApiClientError(Exception):
@@ -206,6 +229,7 @@ class DrimeClient:
         )
         return DrimeFileInfo.from_dict(result["folder"])
 
+    @api_retry
     async def upload_file_simple(
         self, path: str, filename: str, content: Any, content_type: str, _size: int, workspace_id: int = 0
     ) -> Any:
@@ -282,6 +306,18 @@ class DrimeClient:
                     raise DrimeUploadError(msg)
             return signed_url
 
+        @s3_retry
+        async def upload_part(url: str, data: bytes) -> aiohttp.ClientResponse:
+            return await self._session.request(
+                method="PUT",
+                url=url,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(len(data)),
+                },
+                data=data,
+            )
+
         try:
             uploaded_parts: list[dict[str, Any]] = []
             part_number = 1
@@ -309,15 +345,7 @@ class DrimeClient:
                             num_parts,
                             len(part_data),
                         )
-                        response = await self._session.request(
-                            method="PUT",
-                            url=signed_url,
-                            headers={
-                                "Content-Type": "application/octet-stream",
-                                "Content-Length": str(len(part_data.tobytes())),
-                            },
-                            data=part_data.tobytes(),
-                        )
+                        response = await upload_part(signed_url, part_data.tobytes())
                         etag = response.headers.get("ETag", "")
                         uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
                         bytes_uploaded += len(part_data)
@@ -346,15 +374,7 @@ class DrimeClient:
                     len(remaining_data),
                 )
                 signed_url = await get_signed_url(part_number)
-                response = await self._session.request(
-                    method="PUT",
-                    url=signed_url,
-                    headers={
-                        "Content-Type": "application/octet-stream",
-                        "Content-Length": str(len(remaining_data)),
-                    },
-                    data=remaining_data.tobytes(),
-                )
+                response = await upload_part(signed_url, remaining_data.tobytes())
                 etag = response.headers.get("ETag", "")
                 uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
                 bytes_uploaded += len(remaining_data)
@@ -386,6 +406,7 @@ class DrimeClient:
             msg = f"Multipart upload failed: {e}"
             raise DrimeUploadError(msg) from e
 
+    @api_retry
     async def create_multipart_upload(
         self, path: str, filename: str, mime: str, size: int, extension: str, workspace_id: int = 0
     ) -> Any:
@@ -403,6 +424,7 @@ class DrimeClient:
             },
         )
 
+    @api_retry
     async def sign_part_urls(self, key: str, upload_id: str, part_numbers: list[int]) -> Any:
         """https://docs.drime.cloud/api-reference/multipart/sign-part-urls."""
         return await self._api_wrapper(
@@ -411,6 +433,7 @@ class DrimeClient:
             json={"key": key, "uploadId": upload_id, "partNumbers": part_numbers},
         )
 
+    @api_retry
     async def get_uploaded_parts(self, key: str, upload_id: str) -> Any:
         """https://docs.drime.cloud/api-reference/multipart/get-uploaded-parts."""
         return await self._api_wrapper(
@@ -419,6 +442,7 @@ class DrimeClient:
             json={"key": key, "uploadId": upload_id},
         )
 
+    @api_retry
     async def complete_multipart_upload(self, key: str, upload_id: str, parts: list[dict[str, Any]]) -> Any:
         """https://docs.drime.cloud/api-reference/multipart/complete-multipart."""
         return await self._api_wrapper(
@@ -427,6 +451,7 @@ class DrimeClient:
             json={"key": key, "uploadId": upload_id, "parts": parts},
         )
 
+    @api_retry
     async def abort_multipart_upload(self, key: str, upload_id: str) -> Any:
         """https://docs.drime.cloud/api-reference/multipart/abort-multipart."""
         return await self._api_wrapper(
@@ -435,6 +460,7 @@ class DrimeClient:
             json={"key": key, "uploadId": upload_id},
         )
 
+    @api_retry
     async def create_s3_entry(
         self, uuid: str, filename: str, size: int, mime: str, extension: str, path: str, workspace_id: int = 0
     ) -> Any:
@@ -457,6 +483,7 @@ class DrimeClient:
         """https://docs.drime.cloud/api-reference/files/download-file."""
         return await self._stream_wrapper("GET", f"/file-entries/download/{entry_hash}", timeout=timeout)
 
+    @api_retry
     async def delete_entries(self, entry_ids: list[int], *, permanent: bool = False) -> Any:
         """https://docs.drime.cloud/api-reference/files/delete-entries."""
         return await self._api_wrapper(
