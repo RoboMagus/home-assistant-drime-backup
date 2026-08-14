@@ -4,14 +4,18 @@ import logging
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
+import pytest
+from aiohttp import ClientResponseError
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import UpdateFailed
+
+from custom_components.drime.api import DrimeApiClientAuthenticationError
 from custom_components.drime.coordinator import DrimeUpdateCoordinator
-from custom_components.drime.data import DrimeFileInfo, DrimeRuntimeData
+from custom_components.drime.data import ActiveBackupData, DrimeFileInfo, DrimeRuntimeData
 
 if TYPE_CHECKING:
-    import pytest
     from homeassistant.core import HomeAssistant
     from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +28,6 @@ async def test_coordinator_update(
 ) -> None:
     """Basic coordinator test."""
     caplog.set_level(logging.DEBUG)
-    mock_logger = MagicMock()
     mock_config_entry.runtime_data = DrimeRuntimeData(
         client=mock_api, coordinator=None, backup_folder=DrimeFileInfo(name="/foobar", hash="foobar", id=0)
     )
@@ -88,7 +91,6 @@ async def test_coordinator_update(
     await coordinator.async_refresh()
     mock_api.get_space_usage.assert_awaited_once()
     mock_api.get_folders.assert_awaited_once_with("54321")
-    mock_logger.assert_not_called()
 
     assert listener.mock_calls == [call()]
     assert coordinator.last_update_success
@@ -100,3 +102,68 @@ async def test_coordinator_update(
 
     for record in caplog.records:
         assert record.levelname <= "INFO"
+
+
+async def test_coordinator_update_auth_error(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_api,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Basic coordinator test."""
+    caplog.set_level(logging.DEBUG)
+    mock_config_entry.runtime_data = DrimeRuntimeData(
+        client=mock_api, coordinator=None, backup_folder=DrimeFileInfo(name="/foobar", hash="foobar", id=0)
+    )
+    coordinator = DrimeUpdateCoordinator(hass, _LOGGER, name="Dummy", config_entry=mock_config_entry)
+    mock_api.get_space_usage.side_effect = DrimeApiClientAuthenticationError("Unauthorized")
+
+    # Verify the error is properly converted to ConfigEntryAuthFailed
+    with pytest.raises(ConfigEntryAuthFailed):
+        await coordinator._async_update_data()
+
+
+async def test_coordinator_update_unknown_error(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_api,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Basic coordinator test."""
+    caplog.set_level(logging.DEBUG)
+    mock_config_entry.runtime_data = DrimeRuntimeData(
+        client=mock_api, coordinator=None, backup_folder=DrimeFileInfo(name="/foobar", hash="foobar", id=0)
+    )
+    coordinator = DrimeUpdateCoordinator(hass, _LOGGER, name="Dummy", config_entry=mock_config_entry)
+    mock_api.get_space_usage.side_effect = ClientResponseError(
+        request_info=Mock(),
+        history=Mock(),
+        status=666,
+        message="Unholy error",
+    )
+
+    # Any undefined error will result in generic UpdateFailed
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
+
+
+async def test_coordinator_backup_update(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_api,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Coordinator update_active_backup updates sensors."""
+    caplog.set_level(logging.DEBUG)
+    mock_config_entry.runtime_data = DrimeRuntimeData(
+        client=mock_api, coordinator=None, backup_folder=DrimeFileInfo(name="/foobar", hash="foobar", id=0)
+    )
+    coordinator = DrimeUpdateCoordinator(hass, _LOGGER, name="Dummy", config_entry=mock_config_entry)
+
+    listener = Mock()
+    coordinator.async_add_listener(listener)
+
+    coordinator.update_active_backup(
+        ActiveBackupData(total_size=100, uploaded=42, name="BackupName", upload_start_time=None)
+    )
+    assert listener.mock_calls == [call()]
