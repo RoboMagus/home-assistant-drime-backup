@@ -19,8 +19,8 @@ class DrimeEntity(CoordinatorEntity[DrimeUpdateCoordinator]):
             entry_type=DeviceEntryType.SERVICE,
             identifiers={
                 (
-                    coordinator.config_entry.domain,
-                    coordinator.config_entry.entry_id,
+                    str(coordinator.config_entry.domain),
+                    str(coordinator.config_entry.entry_id),
                 ),
             },
             name="Drime cloud",
