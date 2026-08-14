@@ -33,7 +33,9 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
                 *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values(),
             ]
             folder_sizes = {
-                f["hash"]: f["file_size"] for f in folders if f["type"] == "folder" and f["hash"] in folder_hashes
+                f["hash"]: f.get("file_size")
+                for f in folders
+                if f.get("type") == "folder" and f.get("hash") in folder_hashes
             }
             LOGGER.debug("Folder sizes: %r", folder_sizes)
 
