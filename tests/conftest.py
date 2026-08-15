@@ -1,6 +1,7 @@
 """Common fixtures for Drime Backup tests."""
 
 from collections.abc import AsyncIterator, Generator
+from typing import Any
 from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pytest
@@ -12,7 +13,8 @@ from custom_components.drime.data import DrimeData
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+def auto_enable_custom_integrations(enable_custom_integrations) -> Any:
+    """Enable custom components in HA."""
     yield
 
 

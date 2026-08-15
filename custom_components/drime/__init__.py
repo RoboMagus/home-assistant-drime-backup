@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from homeassistant.const import CONF_API_KEY, CONF_PATH, Platform
 from homeassistant.exceptions import ConfigEntryError
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
 
 from .api import DrimeClient
@@ -48,7 +48,7 @@ async def async_setup_entry(
 
     client = DrimeClient(
         api_key=entry.data[CONF_API_KEY],
-        session=async_get_clientsession(hass, **session_args),
+        session=async_create_clientsession(hass, **session_args),
     )
 
     backup_folder_info = await client.get_folder_id(

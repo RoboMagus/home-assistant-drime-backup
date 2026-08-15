@@ -3,9 +3,13 @@
 import json
 import logging
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
-from custom_components.drime.backup import DrimeBackupAgent
+from custom_components.drime.backup import (
+    DATA_BACKUP_AGENT_LISTENERS,
+    DrimeBackupAgent,
+    async_register_backup_agents_listener,
+)
 from custom_components.drime.data import DrimeFileInfo, DrimeRuntimeData
 
 if TYPE_CHECKING:
@@ -123,3 +127,14 @@ async def test_backup_init(
     # Query within cache time: API not called
     mock_api.get_file_entries.assert_not_called()
     assert query_result == backups[0]
+
+
+async def test_listeners_get_cleaned_up(hass: HomeAssistant) -> None:
+    """Test listener gets cleaned up."""
+    listener = MagicMock()
+    remove_listener = async_register_backup_agents_listener(hass, listener=listener)
+
+    hass.data[DATA_BACKUP_AGENT_LISTENERS] = [listener]  # make sure it's the last listener
+    remove_listener()
+
+    assert hass.data.get(DATA_BACKUP_AGENT_LISTENERS) is None
