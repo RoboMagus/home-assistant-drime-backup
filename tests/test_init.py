@@ -1,13 +1,18 @@
 """Tests Drime Backup integration init."""
 
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_PATH
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
+from custom_components.drime.backup import (
+    DrimeBackupAgent,
+    async_get_backup_agents,
+    async_register_backup_agents_listener,
+)
 from custom_components.drime.const import CONF_EXTRA_PATHS, CONF_PROXY_URL, DOMAIN
 from custom_components.drime.data import DrimeFileInfo
 
@@ -41,6 +46,12 @@ async def test_option_change_reload(
         entities = er.async_get(hass).entities.get_entries_for_config_entry_id(mock_config_entry.entry_id)
         assert len(entities) == 5
 
+        backup_agents = await async_get_backup_agents(hass)
+        assert isinstance(backup_agents[0], DrimeBackupAgent)
+
+        listener = Mock()
+        async_register_backup_agents_listener(hass, listener=listener)
+
         # Test reload with Proxy + ExtraPaths:
         create_clientsession.reset_mock()
         get_folder_info.reset_mock()
@@ -50,6 +61,7 @@ async def test_option_change_reload(
             options={CONF_EXTRA_PATHS: {"/path/a": "hash_a", "/path/b": "hash_b"}},
         )
         await hass.async_block_till_done(wait_background_tasks=True)
+        listener.assert_called()  # Once for unload and once for entry update
         create_clientsession.assert_called_once_with(hass, proxy="http://username:pass@proxyhost:8080")
         get_folder_info.assert_awaited_once_with("/HomeAssistant-Tests/backups", "54321")
         assert mock_config_entry.state is ConfigEntryState.LOADED

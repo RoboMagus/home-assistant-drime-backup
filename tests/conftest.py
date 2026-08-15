@@ -5,7 +5,9 @@ from typing import Any
 from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pytest
+from homeassistant.components.backup import AgentBackup
 from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_PATH
+from homeassistant.helpers.event import async_call_later
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.drime.const import CONF_EXTRA_PATHS, CONF_USER_ID, DOMAIN
@@ -16,6 +18,41 @@ from custom_components.drime.data import DrimeData
 def auto_enable_custom_integrations(enable_custom_integrations) -> Any:
     """Enable custom components in HA."""
     yield
+
+
+@pytest.fixture(autouse=True)
+def mock_call_later() -> Any:
+    """Direct call of call_later functions."""
+
+    def _call_now(hass, delay, action) -> None:
+        async_call_later(hass, 0, action)
+
+    with patch("custom_components.drime.backup.async_call_later", wraps=_call_now) as call_later:
+        yield call_later
+
+
+@pytest.fixture
+def backup_size() -> int:
+    """Backup size, override in tests to change defaults."""
+    return 2**20
+
+
+@pytest.fixture
+def mock_agent_backup(backup_size: int) -> AgentBackup:
+    """Test backup fixture."""
+    return AgentBackup(
+        addons=[],
+        backup_id="deadbeef",
+        date="2026-07-18T14:09:00.0+01:00",
+        database_included=True,
+        extra_metadata={},
+        folders=[],
+        homeassistant_included=True,
+        homeassistant_version="2026.7.3",
+        name="Drime Backup Test",
+        protected=False,
+        size=backup_size,
+    )
 
 
 @pytest.fixture
