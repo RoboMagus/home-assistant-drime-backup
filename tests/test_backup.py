@@ -51,7 +51,7 @@ class MockResponse:
         self.content = self.ContentWrapper(json.dumps(data))
 
     def raise_for_status(self) -> None:
-        """ClientResponse Dummy."""
+        """ClientResponse compat."""
         return
 
 
