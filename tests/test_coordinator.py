@@ -2,7 +2,7 @@
 
 import logging
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
+from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 from aiohttp import ClientResponseError

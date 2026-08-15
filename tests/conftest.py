@@ -1,7 +1,6 @@
 """Common fixtures for Drime Backup tests."""
 
-from collections.abc import AsyncIterator, Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, PropertyMock, patch
 
 import pytest
@@ -12,6 +11,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.drime.const import CONF_EXTRA_PATHS, CONF_USER_ID, DOMAIN
 from custom_components.drime.data import DrimeData
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 @pytest.fixture(autouse=True)

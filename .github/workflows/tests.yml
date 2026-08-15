@@ -29,6 +29,7 @@ jobs:
 
       - name: Tests suite
         run: |
+          set -eo pipefail
           pytest \
             --timeout=9 \
             --durations=10 \
@@ -36,5 +37,5 @@ jobs:
             -vvv \
             --cov=custom_components/drime \
             --cov-report=term-missing \
-            --cov-fail-under=75 \
+            --cov-fail-under=80 \
             tests

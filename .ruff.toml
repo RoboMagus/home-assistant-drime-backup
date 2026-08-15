@@ -21,6 +21,19 @@ ignore = [
     "TD006",    # Invalid TODO
 ]
 
+[lint.per-file-ignores]
+"tests/*" = [
+    "ARG001",   # Unused function arguments
+    "ARG002",   # Unused method argument
+    "ANN001",   # Missing type annotation
+    "E501",     # Line length
+    "INP001",   # Implicit namespace package
+    "PLR2004",  # Magic values
+    "PT022",    # Yield in fixture
+    "S101",     # Use of assert
+    "SLF001",   # Private member access
+]
+
 [lint.flake8-pytest-style]
 fixture-parentheses = false
 

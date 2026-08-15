@@ -221,6 +221,7 @@ async def test_backup_upload_small(
     mock_coordinator,
     mock_call_later,
 ) -> None:
+    """Test small backup upload."""
     mock_coordinator.async_request_refresh = AsyncMock()
     mock_config_entry.runtime_data = DrimeRuntimeData(
         client=mock_api,
@@ -256,6 +257,7 @@ async def test_backup_upload_big(
     mock_api,
     mock_call_later,
 ) -> None:
+    """Test big backup upload."""
     mock_coordinator.update_active_backup = Mock()
     mock_config_entry.runtime_data = DrimeRuntimeData(
         client=mock_api,
