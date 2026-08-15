@@ -165,6 +165,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Validate credentials."""
         user = await client.get_user()
         LOGGER.debug(user)
+        # This API status will be 200 for invalid key, but will have empty response.
         if user_data := user.get("user"):
             return user_data
         msg = "Invalid credentials"
