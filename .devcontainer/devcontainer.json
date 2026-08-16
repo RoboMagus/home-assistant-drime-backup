@@ -1,6 +1,6 @@
 {
   "name": "HA Drime Backup Dev Container",
-  "image": "ghcr.io/home-assistant/home-assistant:2026.7",
+  "image": "ghcr.io/home-assistant/home-assistant:2026.8",
   "postCreateCommand": "bash .devcontainer/scripts/setup.sh",
   "postStartCommand": "bash .devcontainer/scripts/run.sh",
   "containerEnv": {
@@ -18,15 +18,18 @@
         "oderwat.indent-rainbow",
         "redhat.vscode-yaml",
         "ryanluker.vscode-coverage-gutters",
+        "tamasfe.even-better-toml",
         "vscode-icons-team.vscode-icons"
       ],
       "settings": {
         "chat.agent.enabled": false,
+        "chat.agentsControl.enabled": "hidden",
         "chat.checkpoints.enabled": false,
         "chat.commandCenter.enabled": false,
         "chat.detectParticipant.enabled": false,
         "chat.disableAIFeatures": true,
         "chat.tools.todos.showWidget": false,
+        "chat.useAgentSkills": false,
         "chat.viewSessions.enabled": false,
         "chat.extensionUnification.enabled": false,
         "chat.mcp.access": "none",
@@ -60,6 +63,7 @@
         "[python]": {
           "editor.defaultFormatter": "charliermarsh.ruff"
         },
+        "redhat.telemetry.enabled": false,
         "workbench.iconTheme": "vscode-icons",
         "yaml.customTags": [
           "!secret scalar",

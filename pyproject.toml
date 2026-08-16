@@ -1,0 +1,36 @@
+[project]
+name = "drime"
+description = "Custom integration for HomeAssistant implementing Drime as a remote backup target"
+version = "0.1.2"
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "tenacity>=8.5.0",
+]
+
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.16.0",
+]
+test = [
+    # Must match HA image version (docker) due to dependencies!
+    "pytest-homeassistant-custom-component==0.13.356",
+]
+
+
+[tool.pytest]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+
+
+[tool.uv]
+# Avoid `UV_EXTRA_INDEX_URL=https://wheels.home-assistant.io/musllinux-index/` to override default package index
+index-strategy = "unsafe-best-match"
+# Avoid updating homeassistant when installing pytest_homeassistant_custom_component
+exclude-dependencies = [
+    "homeassistant",
+    "pytest",
+]

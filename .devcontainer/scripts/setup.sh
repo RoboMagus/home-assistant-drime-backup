@@ -3,7 +3,7 @@ set -e
 
 apk update && apk add --no-cache git wget
 
-pip install -r requirements.txt
+uv pip install -r pyproject.toml --all-extras
 
 hass -c config --script ensure_config
 
