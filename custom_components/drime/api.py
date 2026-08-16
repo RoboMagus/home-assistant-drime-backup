@@ -53,6 +53,14 @@ class DrimeApiClientCommunicationError(DrimeApiClientError):
     """Exception to indicate a communication error."""
 
 
+class DrimeApiClientRateLimitError(DrimeApiClientError):
+    """Exception to indicate rate limitting."""
+
+
+class DrimeApiClientServerError(DrimeApiClientError):
+    """Exception to indicate a server error."""
+
+
 class DrimeApiClientAuthenticationError(DrimeApiClientError):
     """Exception to indicate an authentication error."""
 
@@ -66,6 +74,12 @@ def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     if response.status in (401, 403):
         msg = "Invalid credentials"
         raise DrimeApiClientAuthenticationError(msg)
+    elif response.status == 429:
+        msg = "Too many requests"
+        raise DrimeApiClientRateLimitError(msg)
+    elif response.status >= 500:
+        msg = "Server Error"
+        raise DrimeApiClientServerError(msg)
     response.raise_for_status()
 
 
@@ -131,10 +145,7 @@ class DrimeClient:
             )
             _verify_response_or_raise(response)
             return await response.json()
-        except TimeoutError as exception:
-            msg = f"Timeout error fetching information - {exception}"
-            raise DrimeApiClientCommunicationError(msg) from exception
-        except aiohttp.ClientError as exception:
+        except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as exception:
             msg = f"Error fetching information - {exception}"
             raise DrimeApiClientCommunicationError(msg) from exception
         except Exception as exception:
@@ -161,9 +172,6 @@ class DrimeClient:
                 timeout=aiohttp.ClientTimeout(total=timeout or 60),
             )
             _verify_response_or_raise(response)
-        except TimeoutError as exception:
-            msg = f"Timeout error fetching information - {exception}"
-            raise DrimeApiClientCommunicationError(msg) from exception
         except aiohttp.ClientError as exception:
             msg = f"Error fetching information - {exception}"
             raise DrimeApiClientCommunicationError(msg) from exception
@@ -184,6 +192,10 @@ class DrimeClient:
     async def get_workspace(self, workspace_id: int) -> Any:
         """https://docs.drime.cloud/api-reference/user/get-workspace."""
         return await self._api_wrapper("GET", f"/workspace/{int(workspace_id)}")
+
+    async def get_workspace_files(self, workspace_id: int) -> Any:
+        """https://docs.drime.cloud/api-reference/user/get-workspace-files."""
+        return await self._api_wrapper("GET", "/workspace_files", params={"workspaceId": workspace_id})
 
     async def get_space_usage(self, workspace_id: int = 0) -> Any:
         """https://docs.drime.cloud/api-reference/user/get-space-usage."""
@@ -402,7 +414,7 @@ class DrimeClient:
                 abort_response = await self.abort_multipart_upload(key, upload_id)
                 LOGGER.debug("Abort status: %s", abort_response)
             except Exception:
-                LOGGER.exception("Exception during abort_multipart_upload: %s")
+                LOGGER.exception("Exception during abort_multipart_upload:")
             msg = f"Multipart upload failed: {e}"
             raise DrimeUploadError(msg) from e
 
