@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import math
+from json import dumps as json_dumps
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -74,11 +74,11 @@ def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
     if response.status in (401, 403):
         msg = "Invalid credentials"
         raise DrimeApiClientAuthenticationError(msg)
-    elif response.status == 429:
+    if response.status == 429:  # noqa: PLR2004
         msg = "Too many requests"
         raise DrimeApiClientRateLimitError(msg)
-    elif response.status >= 500:
-        msg = "Server Error"
+    if response.status >= 500:  # noqa: PLR2004
+        msg = f"Server Error: {response.status}"
         raise DrimeApiClientServerError(msg)
     response.raise_for_status()
 
@@ -395,7 +395,7 @@ class DrimeClient:
             if PRINT_UPLOADED_PARTS:
                 parts_response = await self.get_uploaded_parts(key, upload_id)
                 LOGGER.info(
-                    json.dumps(
+                    json_dumps(
                         parts_response,
                         indent=2,
                         default=lambda _: "<< Not JSON Serializable >>",
