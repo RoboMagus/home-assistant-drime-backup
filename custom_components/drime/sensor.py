@@ -125,7 +125,7 @@ class DrimeSensor(DrimeEntity, SensorEntity):
         return getattr(self.coordinator.data, self.entity_description.key)
 
 
-class DrimeExtraPathSensor(DrimeEntity, SensorEntity):
+class DrimeExtraPathSensor(DrimeSensor):
     """drime Sensor class for extra path monitor."""
 
     def __init__(
@@ -134,8 +134,7 @@ class DrimeExtraPathSensor(DrimeEntity, SensorEntity):
         entity_description: SensorEntityDescription,
     ) -> None:
         """Initialize the sensor class."""
-        super().__init__(coordinator)
-        self.entity_description = entity_description
+        super().__init__(coordinator, entity_description)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_extra_{entity_description.key}_sensor"
 
     @property
@@ -145,7 +144,7 @@ class DrimeExtraPathSensor(DrimeEntity, SensorEntity):
         return self.coordinator.data.folder_sizes.get(self.entity_description.key)
 
 
-class ActiveBackupSensor(DrimeEntity, SensorEntity):
+class ActiveBackupSensor(DrimeSensor):
     """Sensor class for active backup states."""
 
     def __init__(
@@ -154,8 +153,7 @@ class ActiveBackupSensor(DrimeEntity, SensorEntity):
         entity_description: SensorEntityDescription,
     ) -> None:
         """Initialize the sensor class."""
-        super().__init__(coordinator)
-        self.entity_description = entity_description
+        super().__init__(coordinator, entity_description)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_active_backup_{entity_description.key}_sensor"
 
     @property
