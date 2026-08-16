@@ -134,32 +134,70 @@ async def test_backup_init(
                     "created_at": "2024-01-14T08:20:00.000000Z",
                     "updated_at": "2024-01-14T08:20:00.000000Z",
                 },
+                {
+                    "id": 585529678,
+                    "name": "backup_2.tar",
+                    "hash": "MDg1NTI5Njc4fA",
+                    "file_size": 2048576,
+                    "parent_id": None,
+                    "workspace_id": 0,
+                    "created_at": "2024-01-14T08:30:00.000000Z",
+                    "updated_at": "2024-01-14T08:30:00.000000Z",
+                },
+                {
+                    "id": 585529679,
+                    "name": "backup_2.metadata.json",
+                    "hash": "MDg1NTI5Njc4fB",
+                    "file_size": 64,
+                    "parent_id": None,
+                    "workspace_id": 0,
+                    "created_at": "2024-01-14T08:30:00.000000Z",
+                    "updated_at": "2024-01-14T08:30:00.000000Z",
+                },
             ],
         }
     )
 
     mock_api.download_file = AsyncMock(
-        return_value=MockResponse(
-            data={
-                "addons": [],
-                "backup_id": "backup_1",
-                "date": "2024-01-14T08:20:00.000000Z",
-                "database_included": True,
-                "extra_metadata": {},
-                "folders": [],
-                "homeassistant_included": True,
-                "homeassistant_version": "2026.7.3",
-                "name": "backup_1",
-                "size": 123456,
-                "protected": False,
-            }
-        )
+        side_effect=[
+            MockResponse(
+                data={
+                    "addons": [],
+                    "backup_id": "backup_1",
+                    "date": "2024-01-14T08:20:00.000000Z",
+                    "database_included": True,
+                    "extra_metadata": {},
+                    "folders": [],
+                    "homeassistant_included": True,
+                    "homeassistant_version": "2026.7.3",
+                    "name": "backup_1",
+                    "size": 123456,
+                    "protected": False,
+                }
+            ),
+            # Incomplete metadata:
+            MockResponse(
+                data={
+                    "backup_id": "backup_2",
+                    "date": "2024-01-14T08:30:00.000000Z",
+                    "homeassistant_version": "2026.7.3",
+                }
+            ),
+            # Download backup:
+            Mock(),
+        ]
     )
 
     backups = await dba.async_list_backups()
     mock_api.get_file_entries.assert_awaited_once_with("foobar_hash")
-    mock_api.download_file.assert_awaited_once_with("NDg1NTI5Njc4fB", timeout=30)
+    mock_api.download_file.assert_has_calls(
+        [
+            call("NDg1NTI5Njc4fB", timeout=30),
+            call("MDg1NTI5Njc4fB", timeout=30),
+        ]
+    )
 
+    # backup_2 has invalid metadata --> Will not be listed
     assert len(backups) == 1
     assert backups[0].name == "backup_1"
     # Validate extra attributes for DrimeAgentBackup:
