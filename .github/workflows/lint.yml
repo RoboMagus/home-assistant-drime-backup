@@ -18,17 +18,16 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          python-version: "3.14"
-          cache: "pip"
+          activate-environment: "true"
 
       - name: Install requirements
-        run: python3 -m pip install -r requirements.txt
+        run: uv pip install -r pyproject.toml --extra dev
 
       - name: Lint
-        run: python3 -m ruff check .
+        run: ruff check .
 
       - name: Format
-        run: python3 -m ruff format . --check
+        run: ruff format . --check
