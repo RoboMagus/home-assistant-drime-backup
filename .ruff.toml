@@ -26,7 +26,10 @@ ignore = [
     "ARG001",   # Unused function arguments
     "ARG002",   # Unused method argument
     "ANN001",   # Missing type annotation
+    "DTZ001",   # Datetime without tzinfo
     "E501",     # Line length
+    "E711",     # None comparison
+    "E712",     # True False comparison
     "INP001",   # Implicit namespace package
     "PLR2004",  # Magic values
     "PT022",    # Yield in fixture
