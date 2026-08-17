@@ -1,7 +1,7 @@
 [project]
 name = "drime"
 description = "Custom integration for HomeAssistant implementing Drime as a remote backup target"
-version = "0.1.2"
+version = "0.1.3"
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.14"
