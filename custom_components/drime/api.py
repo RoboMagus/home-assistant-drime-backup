@@ -28,22 +28,6 @@ LOGGER = logging.getLogger(__name__)
 PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
 PRINT_UPLOADED_PARTS = False
 
-api_retry = retry(
-    retry=retry_if_exception_type((TimeoutError, aiohttp.ClientConnectorError)),
-    stop=stop_after_attempt(5),
-    wait=wait_exponential_jitter(initial=3, jitter=2, max=60),
-    before_sleep=before_sleep_log(LOGGER, logging.WARNING),
-    reraise=True,
-)
-
-s3_retry = retry(
-    retry=retry_if_exception_type((TimeoutError, aiohttp.ClientConnectorError)),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential_jitter(initial=2, jitter=2, max=30),
-    before_sleep=before_sleep_log(LOGGER, logging.WARNING),
-    reraise=True,
-)
-
 
 class DrimeApiClientError(Exception):
     """Exception to indicate a general API error."""
@@ -67,6 +51,25 @@ class DrimeApiClientAuthenticationError(DrimeApiClientError):
 
 class DrimeUploadError(DrimeApiClientError):
     """Exception to indicate upload error."""
+
+
+api_retry = retry(
+    retry=retry_if_exception_type(
+        (TimeoutError, DrimeApiClientRateLimitError, DrimeApiClientServerError, DrimeApiClientCommunicationError)
+    ),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential_jitter(initial=3, jitter=2, max=60),
+    before_sleep=before_sleep_log(LOGGER, logging.WARNING),
+    reraise=True,
+)
+
+s3_retry = retry(
+    retry=retry_if_exception_type((TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(initial=2, jitter=2, max=30),
+    before_sleep=before_sleep_log(LOGGER, logging.WARNING),
+    reraise=True,
+)
 
 
 def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
