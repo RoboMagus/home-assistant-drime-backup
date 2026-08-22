@@ -12,7 +12,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.16.0",
+    "ruff==0.16.3",
 ]
 test = [
     # Must match HA image version (docker) due to dependencies!
