@@ -16,7 +16,7 @@ dev = [
 ]
 test = [
     # Must match HA image version (docker) due to dependencies!
-    "pytest-homeassistant-custom-component==0.13.356",
+    "pytest-homeassistant-custom-component==0.13.366",
 ]
 
 
