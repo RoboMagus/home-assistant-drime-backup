@@ -134,6 +134,7 @@ class DrimeClient:
         data: dict | aiohttp.FormData | None = None,
         headers: dict | None = None,
         params: dict | None = None,
+        timeout: aiohttp.ClientTimeout | None = None
     ) -> Any:
         """Get information from the API."""
         try:
@@ -144,10 +145,12 @@ class DrimeClient:
                 params=params,
                 json=json,
                 data=data,
-                timeout=aiohttp.ClientTimeout(total=15),
+                timeout=timeout or aiohttp.ClientTimeout(total=15),
             )
             _verify_response_or_raise(response)
             return await response.json()
+        except (TimeoutError, DrimeApiClientRateLimitError, DrimeApiClientServerError):
+            raise # Handle by Tenacity retry
         except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as exception:
             msg = f"Error fetching information - {exception}"
             raise DrimeApiClientCommunicationError(msg) from exception
@@ -263,6 +266,7 @@ class DrimeClient:
             "POST",
             "/uploads",
             data=data,
+            timeout=aiohttp.ClientTimeout(total=180),  # Increased timeout for upload API calls
         )
 
     # Multipart Upload Flow:
@@ -437,6 +441,7 @@ class DrimeClient:
                 "relativePath": path,
                 "workspaceId": workspace_id,
             },
+            timeout=aiohttp.ClientTimeout(total=60),  # Increased timeout for upload API calls
         )
 
     @api_retry
@@ -446,6 +451,7 @@ class DrimeClient:
             "POST",
             "/s3/multipart/batch-sign-part-urls",
             json={"key": key, "uploadId": upload_id, "partNumbers": part_numbers},
+            timeout=aiohttp.ClientTimeout(total=60),  # Increased timeout for upload API calls
         )
 
     @api_retry
@@ -455,6 +461,7 @@ class DrimeClient:
             "POST",
             "/s3/multipart/get-uploaded-parts",
             json={"key": key, "uploadId": upload_id},
+            timeout=aiohttp.ClientTimeout(total=60),  # Increased timeout for upload API calls
         )
 
     @api_retry
@@ -464,6 +471,7 @@ class DrimeClient:
             "POST",
             "/s3/multipart/complete",
             json={"key": key, "uploadId": upload_id, "parts": parts},
+            timeout=aiohttp.ClientTimeout(total=60),  # Increased timeout for upload API calls
         )
 
     @api_retry
@@ -473,6 +481,7 @@ class DrimeClient:
             "POST",
             "/s3/multipart/abort",
             json={"key": key, "uploadId": upload_id},
+            timeout=aiohttp.ClientTimeout(total=60),  # Increased timeout for upload API calls
         )
 
     @api_retry
@@ -492,6 +501,7 @@ class DrimeClient:
                 "relativePath": path,
                 "workspaceId": workspace_id,
             },
+            timeout=aiohttp.ClientTimeout(total=60),  # Increased timeout for upload API calls
         )
 
     async def download_file(self, entry_hash: str, timeout: float | None = None) -> Any:  # noqa: ASYNC109
