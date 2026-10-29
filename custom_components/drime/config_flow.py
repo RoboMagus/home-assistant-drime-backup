@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, override
 import voluptuous as vol
 from aiohttp import ClientProxyConnectionError
 from homeassistant import config_entries
+from homeassistant.config_entries import SOURCE_RECONFIGURE
 from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_PATH
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
@@ -100,6 +101,11 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             "Integration documentation URL is not set in manifest.json"
         )
 
+        defaults = {}
+        if self.source == SOURCE_RECONFIGURE:
+            reconfig_entry = self._get_reconfigure_entry()
+            defaults = reconfig_entry.data or {}
+
         return self.async_show_form(
             step_id="user",
             description_placeholders={
@@ -109,7 +115,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(
                         CONF_API_KEY,
-                        default=(user_input or {}).get(CONF_API_KEY, vol.UNDEFINED),
+                        default=defaults.get(CONF_API_KEY, vol.UNDEFINED),
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.PASSWORD,
@@ -117,7 +123,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Required(
                         CONF_PATH,
-                        default=(user_input or {}).get(CONF_PATH, DEFAULT_BACKUP_PATH),
+                        default=defaults.get(CONF_PATH, DEFAULT_BACKUP_PATH),
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.TEXT,
@@ -126,9 +132,9 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(SECTION_ADVANCED_SETTINGS): section(
                         vol.Schema(
                             {
-                                vol.Optional(
-                                    CONF_PROXY_URL, default=(user_input or {}).get(CONF_PROXY_URL, "")
-                                ): TextSelector(config=TextSelectorConfig(type=TextSelectorType.URL)),
+                                vol.Optional(CONF_PROXY_URL, default=defaults.get(CONF_PROXY_URL, "")): TextSelector(
+                                    config=TextSelectorConfig(type=TextSelectorType.URL)
+                                ),
                             },
                         ),
                         {"collapsed": True},
