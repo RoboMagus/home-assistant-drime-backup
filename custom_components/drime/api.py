@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from homeassistant.components.backup import OnProgressCallback
 
 LOGGER = logging.getLogger(__name__)
+NUM_UPLOAD_WORKERS = 4
 PART_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
 PRINT_UPLOADED_PARTS = False
 
@@ -310,7 +311,6 @@ class DrimeClient:
         LOGGER.debug("Initialized MultiPart upload: %s", key)
 
         signed_urls: dict[int, str] = {}
-        upload_semaphore = asyncio.Semaphore(8)  # Limit concurrent uploads
 
         async def get_signed_url(num: int) -> str:
             """Batch pre-signed urls."""
@@ -347,19 +347,33 @@ class DrimeClient:
             on_progress_incremental.bytes_uploaded += bytes_uploaded
             on_progress(bytes_uploaded=on_progress_incremental.bytes_uploaded)
 
-        async def upload_task(signed_url: str, part_number: int, part_data: memoryview) -> dict:
-            """Upload task wrapper."""
-            async with upload_semaphore:
+        async def upload_worker(worker_id: int, queue: asyncio.Queue, results: list) -> None:
+            """Handle parallel uploads from queue."""
+            while True:
+                task = await queue.get()
+                if task is None:
+                    queue.task_done()
+                    LOGGER.debug("[%d] Stopping worker", worker_id)
+                    break
+
+                (signed_url, part_number, part_data) = task
                 LOGGER.debug(
-                    "Uploading part number %d / %d, size %d",
+                    "[%d] Uploading part number %d / %d, size %d",
+                    worker_id,
                     part_number,
                     num_parts,
                     len(part_data),
                 )
 
-                result = await upload_part(signed_url, part_number, part_data.tobytes())
+                results.append(await upload_part(signed_url, part_number, part_data.tobytes()))
                 on_progress_incremental(len(part_data))
-                return result
+                queue.task_done()
+
+        upload_queue = asyncio.Queue(NUM_UPLOAD_WORKERS)
+        results_list = [[] for i in range(NUM_UPLOAD_WORKERS)]
+        workers: list[asyncio.Task] = [
+            asyncio.create_task(upload_worker(i, upload_queue, results_list[i])) for i in range(NUM_UPLOAD_WORKERS)
+        ]
 
         try:
             uploaded_parts: list[dict[str, Any]] = []
@@ -367,7 +381,6 @@ class DrimeClient:
             buffer = bytearray()  # bytes buffer to store the data
             offset = 0  # start index of unread data inside buffer
             on_progress_incremental.bytes_uploaded = 0
-            upload_tasks = []
 
             stream = await open_stream()
             async for chunk in stream:
@@ -382,7 +395,7 @@ class DrimeClient:
                         part_data = view[start:end]
                         offset = end
                         signed_url = await get_signed_url(part_number)
-                        upload_tasks.append(asyncio.create_task(upload_task(signed_url, part_number, part_data)))
+                        await upload_queue.put((signed_url, part_number, part_data))
                         part_number += 1
                 finally:
                     view.release()
@@ -395,7 +408,16 @@ class DrimeClient:
                     buffer = bytearray(buffer[offset:])
                     offset = 0
 
-            uploaded_parts = await asyncio.gather(*upload_tasks)
+            # Wait for remaining tasks to finish
+            await upload_queue.join()
+            # Stop workers
+            for _ in range(NUM_UPLOAD_WORKERS):
+                await upload_queue.put(None)
+            await asyncio.gather(*workers)
+            # Accumulate upload results
+            for results in results_list:
+                uploaded_parts.extend(results)
+            uploaded_parts = sorted(uploaded_parts, key=lambda d: d["PartNumber"])
 
             # Upload the final buffer as the last part (no minimum size requirement)
             # Offset should be 0 after the last compaction, but we use it as the start
