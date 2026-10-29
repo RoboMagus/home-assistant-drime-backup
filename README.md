@@ -42,6 +42,7 @@ After installation and restarting HomeAssistant the integration must be configur
 ## Known Issues
 
 1. **SLOW**: Drime cloud uploads [are quit slow](https://www.reddit.com/r/Drime/comments/1ubrlmg/horrible_upload_speed/). This appears to be caused by server side throttling and is not something that can be improved by this component.
+   - This has been largely improved in version `0.2.x` by parallelizing multi-part uploads. Average upload speed for a 5 GB file increased from 8MiB/s on version `0.1.3` to roughly **40MiB/s**.
 2. **Space reclamation**: After a backup is deleted from Drime cloud, the size of the folder that holds the backups does not decrease. This is a server side issue that will hopefuly be resolved soon.
    - As the `Total size of backups` sensor reads the size of the directory, this size may differ from the sum of all sizes of individual backup files.
 
