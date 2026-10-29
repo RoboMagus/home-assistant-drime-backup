@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from json import dumps as json_dumps
@@ -309,11 +310,12 @@ class DrimeClient:
         LOGGER.debug("Initialized MultiPart upload: %s", key)
 
         signed_urls: dict[int, str] = {}
+        upload_semaphore = asyncio.Semaphore(8)  # Limit concurrent uploads
 
         async def get_signed_url(num: int) -> str:
             """Batch pre-signed urls."""
             if not (signed_url := signed_urls.pop(num, None)):
-                batch_size = min(num_parts - num + 1, 12)
+                batch_size = min(num_parts - num + 1, 16)
                 part_numbers = list(range(num, num + batch_size))
                 LOGGER.debug("Signing parts: %r", part_numbers)
                 sign_response = await self.sign_part_urls(key, upload_id, part_numbers)
@@ -326,8 +328,9 @@ class DrimeClient:
             return signed_url
 
         @s3_retry
-        async def upload_part(url: str, data: bytes) -> aiohttp.ClientResponse:
-            return await self._session.request(
+        async def upload_part(url: str, part_number: int, data: bytes) -> dict:
+            """S3 multipart upload wrapper."""
+            response = await self._session.request(
                 method="PUT",
                 url=url,
                 headers={
@@ -336,13 +339,35 @@ class DrimeClient:
                 },
                 data=data,
             )
+            etag = response.headers.get("ETag", "")
+            return {"PartNumber": part_number, "ETag": etag}
+
+        def on_progress_incremental(bytes_uploaded: int) -> None:
+            """Incremental progress helper."""
+            on_progress_incremental.bytes_uploaded += bytes_uploaded
+            on_progress(bytes_uploaded=on_progress_incremental.bytes_uploaded)
+
+        async def upload_task(signed_url: str, part_number: int, part_data: memoryview) -> dict:
+            """Upload task wrapper."""
+            async with upload_semaphore:
+                LOGGER.debug(
+                    "Uploading part number %d / %d, size %d",
+                    part_number,
+                    num_parts,
+                    len(part_data),
+                )
+
+                result = await upload_part(signed_url, part_number, part_data.tobytes())
+                on_progress_incremental(len(part_data))
+                return result
 
         try:
             uploaded_parts: list[dict[str, Any]] = []
             part_number = 1
             buffer = bytearray()  # bytes buffer to store the data
             offset = 0  # start index of unread data inside buffer
-            bytes_uploaded = 0
+            on_progress_incremental.bytes_uploaded = 0
+            upload_tasks = []
 
             stream = await open_stream()
             async for chunk in stream:
@@ -356,19 +381,8 @@ class DrimeClient:
                         end = offset + PART_SIZE_BYTES
                         part_data = view[start:end]
                         offset = end
-
                         signed_url = await get_signed_url(part_number)
-                        LOGGER.debug(
-                            "Uploading part number %d / %d, size %d",
-                            part_number,
-                            num_parts,
-                            len(part_data),
-                        )
-                        response = await upload_part(signed_url, part_data.tobytes())
-                        etag = response.headers.get("ETag", "")
-                        uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
-                        bytes_uploaded += len(part_data)
-                        on_progress(bytes_uploaded=bytes_uploaded)
+                        upload_tasks.append(asyncio.create_task(upload_task(signed_url, part_number, part_data)))
                         part_number += 1
                 finally:
                     view.release()
@@ -380,6 +394,8 @@ class DrimeClient:
                 if offset and offset >= PART_SIZE_BYTES:
                     buffer = bytearray(buffer[offset:])
                     offset = 0
+
+            uploaded_parts = await asyncio.gather(*upload_tasks)
 
             # Upload the final buffer as the last part (no minimum size requirement)
             # Offset should be 0 after the last compaction, but we use it as the start
@@ -393,11 +409,9 @@ class DrimeClient:
                     len(remaining_data),
                 )
                 signed_url = await get_signed_url(part_number)
-                response = await upload_part(signed_url, remaining_data.tobytes())
-                etag = response.headers.get("ETag", "")
-                uploaded_parts.append({"PartNumber": part_number, "ETag": etag})
-                bytes_uploaded += len(remaining_data)
-                on_progress(bytes_uploaded=bytes_uploaded)
+                result = await upload_part(signed_url, part_number, remaining_data.tobytes())
+                uploaded_parts.append(result)
+                on_progress_incremental(len(remaining_data))
 
             if PRINT_UPLOADED_PARTS:
                 parts_response = await self.get_uploaded_parts(key, upload_id)
