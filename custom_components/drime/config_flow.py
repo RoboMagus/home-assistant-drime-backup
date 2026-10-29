@@ -129,7 +129,7 @@ class DrimeFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             type=selector.TextSelectorType.TEXT,
                         ),
                     ),
-                    vol.Required(SECTION_ADVANCED_SETTINGS): section(
+                    vol.Optional(SECTION_ADVANCED_SETTINGS): section(
                         vol.Schema(
                             {
                                 vol.Optional(CONF_PROXY_URL, default=defaults.get(CONF_PROXY_URL, "")): TextSelector(

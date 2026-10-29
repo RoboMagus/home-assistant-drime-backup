@@ -136,7 +136,7 @@ class DrimeClient:
         data: dict | aiohttp.FormData | None = None,
         headers: dict | None = None,
         params: dict | None = None,
-        timeout: aiohttp.ClientTimeout | None = None
+        timeout: aiohttp.ClientTimeout | None = None,  # noqa: ASYNC109
     ) -> Any:
         """Get information from the API."""
         try:
@@ -151,8 +151,8 @@ class DrimeClient:
             )
             _verify_response_or_raise(response)
             return await response.json()
-        except (TimeoutError, DrimeApiClientRateLimitError, DrimeApiClientServerError):
-            raise # Handle by Tenacity retry
+        except TimeoutError, DrimeApiClientRateLimitError, DrimeApiClientServerError:
+            raise  # Handle by Tenacity retry
         except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as exception:
             msg = f"Error fetching information - {exception}"
             raise DrimeApiClientCommunicationError(msg) from exception

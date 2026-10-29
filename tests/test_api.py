@@ -197,7 +197,7 @@ async def test_upload_file_simple() -> None:
         )
         expected_data.add_field("relativePath", "/path/to/upload/to/filename.json")
         expected_data.add_field("workspaceId", "9001")
-        api_wrapper.assert_awaited_once_with("POST", "/uploads", data=ANY)
+        api_wrapper.assert_awaited_once_with("POST", "/uploads", data=ANY, timeout=aiohttp.ClientTimeout(total=180))
         assert await api_wrapper.await_args.kwargs["data"]().as_bytes() == await expected_data().as_bytes()
         assert r == "_response_"
 
@@ -218,6 +218,7 @@ async def test_create_multipart_upload() -> None:
                 "relativePath": "path",
                 "workspaceId": 0,
             },
+            timeout=aiohttp.ClientTimeout(total=60),
         )
         assert r == "_response_"
 
@@ -235,6 +236,7 @@ async def test_sign_part_urls() -> None:
                 "uploadId": "upload_id",
                 "partNumbers": [1, 2, 3],
             },
+            timeout=aiohttp.ClientTimeout(total=60),
         )
         assert r == "_response_"
 
@@ -251,6 +253,7 @@ async def test_get_uploaded_parts() -> None:
                 "key": "key",
                 "uploadId": "upload_id",
             },
+            timeout=aiohttp.ClientTimeout(total=60),
         )
         assert r == "_response_"
 
@@ -268,6 +271,7 @@ async def test_complete_multipart_upload() -> None:
                 "uploadId": "upload_id",
                 "parts": [{"PN": 1, "ET": "e1"}, {"PN": 2, "ET": "e2"}],
             },
+            timeout=aiohttp.ClientTimeout(total=60),
         )
         assert r == "_response_"
 
@@ -284,6 +288,7 @@ async def test_abort_multipart_upload() -> None:
                 "key": "key",
                 "uploadId": "upload_id",
             },
+            timeout=aiohttp.ClientTimeout(total=60),
         )
         assert r == "_response_"
 
@@ -305,6 +310,7 @@ async def test_create_s3_entry() -> None:
                 "relativePath": "path",
                 "workspaceId": 0,
             },
+            timeout=aiohttp.ClientTimeout(total=60),
         )
         assert r == "_response_"
 

@@ -335,11 +335,17 @@ async def test_reconfigure_flow(
     hass: HomeAssistant, mock_setup_entry: AsyncMock, mock_config_entry: MockConfigEntry
 ) -> None:
     """Test reconfigure flow."""
+    mock_config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": mock_config_entry.entry_id}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
+    # Form is pre-filled with existing user data:
+    assert result["data_schema"]({})["path"] == "/HomeAssistant-Tests/backups"
 
 
 async def test_options_flow(hass: HomeAssistant, mock_config_entry: MockConfigEntry) -> None:
