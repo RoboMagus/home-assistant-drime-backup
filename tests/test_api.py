@@ -101,7 +101,7 @@ async def test_get_file_entries() -> None:
     """Test get_file_entries."""
     with patch("custom_components.drime.api.DrimeClient._api_wrapper", return_value="_response_") as api_wrapper:
         client = DrimeClient("API_KEY", None)
-        r = await client.get_file_entries("folder_hash")
+        r = await client.get_file_entries(folder_hash="folder_hash")
         api_wrapper.assert_awaited_once_with(
             "GET", "/drive/file-entries", params={"workspaceId": 0, "perPage": 100, "folderId": "folder_hash"}
         )

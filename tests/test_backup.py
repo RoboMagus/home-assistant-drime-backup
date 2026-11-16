@@ -189,7 +189,7 @@ async def test_backup_init(
     )
 
     backups = await dba.async_list_backups()
-    mock_api.get_file_entries.assert_awaited_once_with("foobar_hash")
+    mock_api.get_file_entries.assert_awaited_once_with(folder_hash="foobar_hash")
     mock_api.download_file.assert_has_calls(
         [
             call("NDg1NTI5Njc4fB", timeout=30),

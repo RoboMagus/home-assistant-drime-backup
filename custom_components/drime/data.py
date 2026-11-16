@@ -61,5 +61,5 @@ class DrimeData:
     percentage_used: float
     storage_used: int
     storage_available: int
-    total_backup_size: int
+    total_backup_size: int | None
     folder_sizes: dict[str, int]

@@ -19,31 +19,34 @@ class DrimeUpdateCoordinator(DataUpdateCoordinator[DrimeData]):
 
     active_backup: ActiveBackupData | None = None
     config_entry: DrimeConfigEntry
+    degraded_api: bool = False
 
     async def _async_update_data(self) -> DrimeData:
         """Update data via library."""
         try:
             space_usage = await self.config_entry.runtime_data.client.get_space_usage()
 
-            folders = (
-                await self.config_entry.runtime_data.client.get_folders(self.config_entry.data.get(CONF_USER_ID))
-            ).get("folders", [])
-            folder_hashes = [
-                self.config_entry.runtime_data.backup_folder.hash,
-                *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values(),
-            ]
-            folder_sizes = {
-                f["hash"]: f.get("file_size")
-                for f in folders
-                if f.get("type") == "folder" and f.get("hash") in folder_hashes
-            }
-            LOGGER.debug("Folder sizes: %r", folder_sizes)
+            folder_sizes = {}
+            if not self.degraded_api:
+                folders = (
+                    await self.config_entry.runtime_data.client.get_folders(self.config_entry.data.get(CONF_USER_ID))
+                ).get("folders", [])
+                folder_hashes = [
+                    self.config_entry.runtime_data.backup_folder.hash,
+                    *self.config_entry.options.get(CONF_EXTRA_PATHS, {}).values(),
+                ]
+                folder_sizes = {
+                    f["hash"]: f.get("file_size")
+                    for f in folders
+                    if f.get("type") == "folder" and f.get("hash") in folder_hashes
+                }
+                LOGGER.debug("Folder sizes: %r", folder_sizes)
 
             return DrimeData(
                 100 * space_usage["used"] / space_usage["available"],
                 space_usage["used"],
                 space_usage["available"],
-                folder_sizes[self.config_entry.runtime_data.backup_folder.hash],
+                folder_sizes.get(self.config_entry.runtime_data.backup_folder.hash),
                 folder_sizes,
             )
         except DrimeApiClientAuthenticationError as exception:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from asyncio.exceptions import CancelledError
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,7 @@ from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue, async_delete_issue
 
-from .api import DrimeClient
+from .api import DrimeApiClientServerError, DrimeClient
 from .backup import DATA_BACKUP_AGENT_LISTENERS
 from .const import CONF_PROXY_URL, CONF_USER_ID, DEFAULT_BACKUP_PATH, DOMAIN
 from .coordinator import DrimeUpdateCoordinator
@@ -51,9 +52,28 @@ async def async_setup_entry(
         session=async_create_clientsession(hass, **session_args),
     )
 
-    backup_folder_info = await client.get_folder_id(
-        conf_folder_path := entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), entry.data.get(CONF_USER_ID)
-    )
+    # GetUserFolders API endpoint can error out on large nested directory structures...
+    # This impacts storage sensors but not the creation of new backups, so continue in degraded state.
+    try:
+        backup_folder_info = await client.get_folder_id(
+            conf_folder_path := entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH), entry.data.get(CONF_USER_ID)
+        )
+    except CancelledError, TimeoutError, DrimeApiClientServerError:
+        LOGGER.warning("GetUserFolders Failed. Trying fallback using file-entries!")
+        backup_folder_info = await client.get_file_entries_id(
+            conf_folder_path := entry.data.get(CONF_PATH, DEFAULT_BACKUP_PATH)
+        )
+        coordinator.degraded_api = True
+        async_create_issue(
+            hass,
+            DOMAIN,
+            f"drime_backup_api_degraded_{entry.unique_id}",
+            is_fixable=False,
+            is_persistent=False,
+            severity=IssueSeverity.WARNING,
+            translation_key="drime_backup_api_degraded",
+        )
+
     if backup_folder_info.name.strip(" /") != conf_folder_path.strip(" /"):
         async_create_issue(
             hass,

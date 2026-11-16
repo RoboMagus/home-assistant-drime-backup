@@ -37,6 +37,10 @@
     "drime_backup_folder_not_found": {
       "description": "The backup folder {path} cannot be found on Drime storage.\n\nThe folder may have been renamed or deleted.\nPlease ensure this path exists and reload this integration or restart Home Assistant to fix this issue.",
       "title": "Drime backup folder not found"
+    },
+    "drime_backup_api_degraded": {
+      "description": "Enumerating folders is throwing server errors. This is likely caused by large nested directory structures in a single workspace.\nPlease cleanup your drime workspace to fix this issue.",
+      "title": "Drime API degraded"
     }
   },
   "options": {

@@ -209,11 +209,36 @@ class DrimeClient:
         """https://docs.drime.cloud/api-reference/user/get-space-usage."""
         return await self._api_wrapper("GET", "/user/space-usage", params={"workspaceId": workspace_id})
 
-    async def get_file_entries(self, folder_hash: str | None = None, workspace_id: int = 0) -> Any:
+    async def get_file_entries(
+        self, *, file_type: str | None = None, folder_hash: str | None = None, workspace_id: int = 0
+    ) -> Any:
         """https://docs.drime.cloud/api-reference/files/get-file-entries."""
-        return await self._api_wrapper(
-            "GET", "/drive/file-entries", params={"workspaceId": workspace_id, "perPage": 100, "folderId": folder_hash}
-        )
+        params = {"workspaceId": workspace_id, "perPage": 100, "folderId": folder_hash}
+        if file_type:
+            params["type"] = file_type
+        return await self._api_wrapper("GET", "/drive/file-entries", params=params)
+
+    async def get_file_entries_id(self, path: str) -> DrimeFileInfo:
+        """Get folder id fallback using file-entries."""
+        current_folder_id = None
+        directory_tree = [d for d in path.strip(" /").split("/") if d.strip()]
+        folder_hash = ""
+
+        for i, d in enumerate(directory_tree):
+            d_found = False
+            folders = (await self.get_file_entries(file_type="folder", folder_hash=folder_hash)).get("data", [])
+            for f in folders:
+                if f["parent_id"] == current_folder_id and f["name"] == d:
+                    current_folder_id = f["id"]
+                    folder_hash = f["hash"]
+                    d_found = True
+                    break
+            if not d_found:
+                LOGGER.warning("Path not found @ %d: %s", i, path)
+                return DrimeFileInfo(name="/".join(directory_tree[:i]), hash=folder_hash, id=current_folder_id or 0)
+
+        LOGGER.info("Found: %s", path)
+        return DrimeFileInfo(name="/".join(directory_tree), hash=folder_hash, id=current_folder_id or 0)
 
     async def get_folders(self, user_id: int, workspace_id: int = 0) -> Any:
         """https://docs.drime.cloud/api-reference/files/get-user-folders."""
@@ -231,7 +256,7 @@ class DrimeClient:
         return fid
 
     async def get_folders_ids(self, paths: list[str], user_id: int) -> list[DrimeFileInfo]:
-        """Get folder id."""
+        """Get folders id."""
         folders = (await self.get_folders(user_id)).get("folders", [])
         return [_get_folder_id(path.strip(" /"), folders) for path in paths]
 
